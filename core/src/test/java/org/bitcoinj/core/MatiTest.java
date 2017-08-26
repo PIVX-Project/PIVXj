@@ -127,7 +127,7 @@ public class MatiTest {
     public void connect() throws BlockStoreException, IOException {
         NetworkParameters networkParameters = TestNet3Params.get();
         Context context = new Context(networkParameters);
-        //context.initDash(false, true);
+        //context.initPivx(false, true);
         //File dir = new File("dir");
         //dir.mkdir();
         //context.initDashSync(dir.getAbsolutePath());

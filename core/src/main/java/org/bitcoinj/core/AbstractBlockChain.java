@@ -489,6 +489,7 @@ public abstract class AbstractBlockChain {
                 // It connects to somewhere on the chain. Not necessarily the top of the best known chain.
                 //context.checkDifficultyTransitions(storedPrev, block, blockStore);
                 //todo furszy: i'm not checking the difficulty yet
+                //todo: this should be checked on a MN wallet service.
                 //checkDifficultyTransitions(storedPrev, block);
                 connectBlock(block, storedPrev, shouldVerifyTransactions(), filteredTxHashList, filteredTxn);
             }
@@ -1247,9 +1248,7 @@ public abstract class AbstractBlockChain {
             // No ... so check the difficulty didn't actually change.
             if (nextBlock.getDifficultyTarget() != prev.getDifficultyTarget()) {
                 //todo: furszy: check difficulty transition commented.
-                //todo: i'm just going to print this without do anything for now.
-
-                log.info("Unexpected change in difficulty at height " + storedPrev.getHeight());
+                log.debug("Unexpected change in difficulty at height " + storedPrev.getHeight());
                 return;
                 //throw new VerificationException("Unexpected change in difficulty at height " + storedPrev.getHeight() +
                 //        ": " + Long.toHexString(nextBlock.getDifficultyTarget()) + " vs " +

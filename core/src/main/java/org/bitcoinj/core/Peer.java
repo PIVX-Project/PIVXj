@@ -563,7 +563,7 @@ public class Peer extends PeerSocketHandler {
                 context.instantSend.processTransactionLockVoteMessage(this, (TransactionLockVote)m);
         }
         else if(m instanceof SyncStatusCount) {
-            // todo furszy: check dash masternodes
+            // todo furszy: check pivx masternodes
             if (context.masternodeSync!=null)
                 context.masternodeSync.processSyncStatusCount(this, (SyncStatusCount)m);
         }

@@ -566,6 +566,7 @@ public class Block extends Message {
             log.debug("Hash is higher than target: " + getHashAsString() + " vs " + target.toString(16));
             return true;
             // todo: commented for POS implementation, i have to verify this in another way..
+            // todo: one workaround could be use a wallet service inside the master nodes.
             //if (throwException) {
             //    log.info("Hash is higher than target: " + getHashAsString() + " vs " + target.toString(16));
                 //throw new VerificationException("Hash is higher than target: " + getHashAsString() + " vs "

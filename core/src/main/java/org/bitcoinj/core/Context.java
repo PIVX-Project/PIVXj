@@ -200,14 +200,14 @@ public class Context {
     }
 
     //
-    // Dash Specific
+    // Pivx Specific
     //
 
-    public void initDash(boolean liteMode, boolean allowInstantX) {
+    public void initPivx(boolean liteMode, boolean allowInstantX) {
         this.liteMode = liteMode;
         this.allowInstantX = allowInstantX;
 
-        //Dash Specific
+        //Pivx Specific
         sporkManager = new SporkManager(this);
 
         masternodePayments = new MasternodePayments(this);
@@ -246,14 +246,14 @@ public class Context {
         this.blockChain = chain;
         hashStore = new HashStore(chain.getBlockStore());
         chain.addListener(updateHeadListener);
-        //todo: mati dash init
+        //todo: furszy pivx init
         if (sporkManager!=null) {
             sporkManager.setBlockChain(chain);
             masternodeManager.setBlockChain(chain);
             masternodeSync.setBlockChain(chain);
             instantSend.setBlockChain(chain);
         }else {
-            log.error("##### Dash init not called!, this is going to be an issue in the future");
+            log.error("##### Pivx init not called!, this is going to be an issue in the future");
         }
     }
 
@@ -279,7 +279,7 @@ public class Context {
     BlockChainListener updateHeadListener = new BlockChainListener () {
         public void notifyNewBestBlock(StoredBlock block) throws VerificationException
         {
-            //todo furszy: commented dash stuff
+            //todo furszy: commented pivx MN stuff
             if (masternodeSync!=null)
                 masternodeSync.updateBlockTip(block);
         }

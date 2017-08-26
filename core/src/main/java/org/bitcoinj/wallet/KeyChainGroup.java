@@ -84,6 +84,11 @@ public class KeyChainGroup implements KeyBag {
         this(params, null, ImmutableList.of(new DeterministicKeyChain(seed)), null, null);
     }
 
+    /** Creates a keychain group with no basic chain, and an HD chain initialized from the given seed. */
+    public KeyChainGroup(NetworkParameters params, DeterministicSeed seed, DeterministicKeyChain.KeyChainType keyChainType) {
+        this(params, null, ImmutableList.of(new DeterministicKeyChain(seed,keyChainType)), null, null);
+    }
+
     /**
      * Creates a keychain group with no basic chain, and an HD chain that is watching the given watching key.
      * This HAS to be an account key as returned by {@link DeterministicKeyChain#getWatchingKey()}.
@@ -234,7 +239,9 @@ public class KeyChainGroup implements KeyBag {
             currentAddresses.put(purpose, freshAddress);
             return freshAddress;
         } else {
-            return freshKey(purpose).toAddress(params);
+            DeterministicKey deterministicKey = freshKey(purpose);
+            System.out.println("fresh address key path: "+deterministicKey.getPathAsString());
+            return deterministicKey.toAddress(params);
         }
     }
 

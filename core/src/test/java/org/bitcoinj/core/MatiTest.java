@@ -91,15 +91,14 @@ public class MatiTest {
         DeterministicSeed seed = new DeterministicSeed(list, null, "", System.currentTimeMillis());
         Wallet wallet = Wallet.fromSeed(
                 networkParameters,
-                seed
+                seed,
+                DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY
         );
 
-        DeterministicKeyChain deterministicKeyChain = wallet.getActiveKeyChain();
+        System.out.println("Wallet version: "+wallet.getVersion());
 
-        List<ChildNumber> childNumbers = new ArrayList<ChildNumber>();
-        childNumbers.addAll(deterministicKeyChain.getWatchingKey().getPath());
-        childNumbers.add(ChildNumber.ZERO);
-        DeterministicKey account = deterministicKeyChain.getKeyByPath(childNumbers,false);
+        DeterministicKeyChain deterministicKeyChain = wallet.getActiveKeyChain();
+        DeterministicKey account = deterministicKeyChain.getWatchingKey();
         System.out.println("path: "+account.getPath());
         System.out.println("xpub: "+account.serializePubB58(networkParameters));
         System.out.println("xpriv: "+account.serializePrivB58(networkParameters));
@@ -121,6 +120,8 @@ public class MatiTest {
         DeterministicKey addressKey4 = wallet.freshReceiveKey();
         System.out.println("address path: "+addressKey4.getPath()+" "+addressKey4.toAddress(networkParameters).toBase58());
 
+        Protos.Wallet protoWallet = new WalletProtobufSerializer().walletToProto(wallet);
+        System.out.println("Proto wallet version: " + protoWallet.getVersion());
     }
 
     @Test

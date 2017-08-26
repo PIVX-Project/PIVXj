@@ -55,6 +55,13 @@ public class BlockTest {
     }
 
     @Test
+    public void genesisBlockTest(){
+
+        NetworkParameters networkParameters = TestNet3Params.get();
+
+    }
+
+    @Test
     public void testWork() throws Exception {
         BigInteger work = PARAMS.getGenesisBlock().getWork();
         // This number is printed by Bitcoin Core at startup as the calculated value of chainWork on testnet:

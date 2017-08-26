@@ -1995,7 +1995,9 @@ public class Wallet extends BaseTaggableObject
             // confidence object about the block and sets its depth appropriately.
             tx.setBlockAppearance(block, bestChain, relativityOffset);
             //added for Dash
-            context.instantSend.syncTransaction(tx, block);
+            //todo furszy: commented.
+            if (context.instantSend!=null)
+                context.instantSend.syncTransaction(tx, block);
             if (bestChain) {
                 // Don't notify this tx of work done in notifyNewBestBlock which will be called immediately after
                 // this method has been called by BlockChain for all relevant transactions. Otherwise we'd double

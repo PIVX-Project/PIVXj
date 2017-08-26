@@ -246,10 +246,15 @@ public class Context {
         this.blockChain = chain;
         hashStore = new HashStore(chain.getBlockStore());
         chain.addListener(updateHeadListener);
-        sporkManager.setBlockChain(chain);
-        masternodeManager.setBlockChain(chain);
-        masternodeSync.setBlockChain(chain);
-        instantSend.setBlockChain(chain);
+        //todo: mati dash init
+        if (sporkManager!=null) {
+            sporkManager.setBlockChain(chain);
+            masternodeManager.setBlockChain(chain);
+            masternodeSync.setBlockChain(chain);
+            instantSend.setBlockChain(chain);
+        }else {
+            log.error("##### Dash init not called!, this is going to be an issue in the future");
+        }
     }
 
     public boolean isLiteMode() { return liteMode; }
@@ -274,7 +279,9 @@ public class Context {
     BlockChainListener updateHeadListener = new BlockChainListener () {
         public void notifyNewBestBlock(StoredBlock block) throws VerificationException
         {
-            masternodeSync.updateBlockTip(block);
+            //todo furszy: commented dash stuff
+            if (masternodeSync!=null)
+                masternodeSync.updateBlockTip(block);
         }
 
         public void reorganize(StoredBlock splitPoint, List<StoredBlock> oldBlocks,
@@ -317,7 +324,9 @@ public class Context {
 
     public void updatedChainHead(StoredBlock chainHead)
     {
-        instantSend.updatedChainHead(chainHead);
+        // todo: furszy commented for now.
+        if (instantSend!=null)
+            instantSend.updatedChainHead(chainHead);
 
         /*
         mnodeman.UpdatedBlockTip(pindex);

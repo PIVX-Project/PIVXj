@@ -466,11 +466,12 @@ public class Peer extends PeerSocketHandler {
 
             if(count % 50 == 0)
             {
-                log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " +(current-startTime)/1000 + " s:" + (dataReceived / 1024)/(current-startTime)*1000 + " KB/s");
+                log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " +(current-startTime)/1000 + " s:" + (dataReceived / 1024)/(current-startTime)*1000 + " KB/s , msgType: "+m.toString());
             }
             count++;
         }
 
+        //System.out.println("process message: "+m.toString());
 
         // Allow event listeners to filter the message stream. Listeners are allowed to drop messages by
         // returning null.
@@ -552,13 +553,19 @@ public class Peer extends PeerSocketHandler {
         }
         else if(m instanceof SporkMessage)
         {
-            context.sporkManager.processSpork(this, (SporkMessage)m);
+            // todo furszy: commented for now.
+            if (context.sporkManager!=null)
+                context.sporkManager.processSpork(this, (SporkMessage)m);
         }
         else if(m instanceof TransactionLockVote) {
-            context.instantSend.processTransactionLockVoteMessage(this, (TransactionLockVote)m);
+            // todo furszy: commented for now
+            if (context.instantSend!=null)
+                context.instantSend.processTransactionLockVoteMessage(this, (TransactionLockVote)m);
         }
         else if(m instanceof SyncStatusCount) {
-            context.masternodeSync.processSyncStatusCount(this, (SyncStatusCount)m);
+            // todo furszy: check dash masternodes
+            if (context.masternodeSync!=null)
+                context.masternodeSync.processSyncStatusCount(this, (SyncStatusCount)m);
         }
         else
         {
@@ -819,7 +826,9 @@ public class Peer extends PeerSocketHandler {
             confidence.setSource(TransactionConfidence.Source.NETWORK);
 
             //Dash Specific
-            context.instantSend.syncTransaction(tx, null);
+            // todo furszy: commented dash instantSend for now.
+            if (context.instantSend!=null)
+                context.instantSend.syncTransaction(tx, null);
 
             pendingTxDownloads.remove(confidence);
             if (maybeHandleRequestedData(tx)) {
@@ -1073,6 +1082,7 @@ public class Peer extends PeerSocketHandler {
                 // off a request for lots more headers in parallel.
                 lock.lock();
                 try {
+                    //todo: furszy check this please..
                     if (downloadBlockBodies) {
                         final Block orphanRoot = checkNotNull(blockChain.getOrphanRoot(m.getHash()));
                         blockChainDownloadLocked(orphanRoot.getHash());
@@ -1298,6 +1308,7 @@ public class Peer extends PeerSocketHandler {
         List<InventoryItem> sporks = new LinkedList<InventoryItem>();
 
         //InstantSend instantSend = InstantSend.get(blockChain);
+        log.info("inv arrived, items: "+Arrays.toString(items.toArray()));
 
         for (InventoryItem item : items) {
             switch (item.type) {

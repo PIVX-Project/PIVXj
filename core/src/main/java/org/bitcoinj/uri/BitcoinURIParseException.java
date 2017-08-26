@@ -17,7 +17,7 @@
 package org.bitcoinj.uri;
 
 /**
- * <p>Exception to provide the following to {@link BitcoinURI}:</p>
+ * <p>Exception to provide the following to {@link PivxURI}:</p>
  * <ul>
  * <li>Provision of parsing error messages</li>
  * </ul>

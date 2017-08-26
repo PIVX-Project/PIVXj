@@ -52,11 +52,11 @@ public final class MonetaryFormat {
     /** Standard format for fiat amounts. */
     public static final MonetaryFormat FIAT = new MonetaryFormat().shift(0).minDecimals(2).repeatOptionalDecimals(2, 1);
     /** Currency code for base 1 Bitcoin. */
-    public static final String CODE_BTC = "DASH";
+    public static final String CODE_BTC = "PIV";
     /** Currency code for base 1/1000 Bitcoin. */
-    public static final String CODE_MBTC = "mDASH";
+    public static final String CODE_MBTC = "mPIV";
     /** Currency code for base 1/1000000 Bitcoin. */
-    public static final String CODE_UBTC = "µDASH";
+    public static final String CODE_UBTC = "µPIV";
 
     public static final int MAX_DECIMALS = 8;
 

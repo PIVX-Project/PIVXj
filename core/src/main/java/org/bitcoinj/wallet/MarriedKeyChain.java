@@ -28,6 +28,8 @@ import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.crypto.KeyCrypter;
 import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
 import java.util.LinkedHashMap;
@@ -55,6 +57,9 @@ import static com.google.common.collect.Lists.newArrayList;
  * issued.</p>
  */
 public class MarriedKeyChain extends DeterministicKeyChain {
+
+    private Logger logger = LoggerFactory.getLogger(MarriedKeyChain.class);
+
     // The map holds P2SH redeem script and corresponding ECKeys issued by this KeyChainGroup (including lookahead)
     // mapped to redeem script hashes.
     private LinkedHashMap<ByteString, RedeemData> marriedKeysRedeemData = new LinkedHashMap<ByteString, RedeemData>();
@@ -153,6 +158,7 @@ public class MarriedKeyChain extends DeterministicKeyChain {
     @Override
     public Script freshOutputScript(KeyPurpose purpose) {
         DeterministicKey followedKey = getKey(purpose);
+        System.out.println("FollowedKey path: "+followedKey.getPathAsString());
         ImmutableList.Builder<ECKey> keys = ImmutableList.<ECKey>builder().add(followedKey);
         for (DeterministicKeyChain keyChain : followingKeyChains) {
             DeterministicKey followingKey = keyChain.getKey(purpose);

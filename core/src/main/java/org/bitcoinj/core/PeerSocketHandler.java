@@ -84,6 +84,7 @@ public abstract class PeerSocketHandler extends AbstractTimeoutHandler implement
             lock.unlock();
         }
         // TODO: Some round-tripping could be avoided here
+        //System.out.println("Sending msg: "+message.toString());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             serializer.serialize(message, out);

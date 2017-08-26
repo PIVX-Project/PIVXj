@@ -57,13 +57,13 @@ public class BuildCheckpoints {
     private static NetworkParameters params;
 
     public static void main(String[] args) throws Exception {
-        BriefLogFormatter.initWithSilentBitcoinJ();
+        BriefLogFormatter.initVerbose();
 
         OptionParser parser = new OptionParser();
         parser.accepts("help");
         OptionSpec<NetworkEnum> netFlag = parser.accepts("net").withRequiredArg().ofType(NetworkEnum.class).defaultsTo(NetworkEnum.MAIN);
         parser.accepts("peer").withRequiredArg();
-        OptionSpec<Integer> daysFlag = parser.accepts("days").withRequiredArg().ofType(Integer.class).defaultsTo(30);
+        OptionSpec<Integer> daysFlag = parser.accepts("days").withRequiredArg().ofType(Integer.class).defaultsTo(4);
         OptionSet options = parser.parse(args);
 
         if (options.has("help")) {
@@ -71,7 +71,7 @@ public class BuildCheckpoints {
             return;
         }
 
-        final String suffix;
+        String suffix;
         switch (netFlag.value(options)) {
             case MAIN:
             case PROD:
@@ -87,8 +87,16 @@ public class BuildCheckpoints {
                 suffix = "-regtest";
                 break;
             default:
-                throw new RuntimeException("Unreachable.");
+                params = TestNet3Params.get();
+                suffix = "-testnet";
+                //throw new RuntimeException("Unreachable.");
         }
+
+        //params = TestNet3Params.get();
+        //suffix = "-testnet";
+        params = MainNetParams.get();
+        suffix = "";
+
 
         final InetAddress ipAddress;
         if (options.has("peer")) {
@@ -101,7 +109,7 @@ public class BuildCheckpoints {
                 return;
             }
         } else {
-            ipAddress = InetAddress.getLocalHost();
+            ipAddress =  InetAddress.getLocalHost(); //InetAddress.getByName("185.101.98.175");
         }
         final PeerAddress peerAddress = new PeerAddress(ipAddress, params.getPort());
 
@@ -111,13 +119,13 @@ public class BuildCheckpoints {
         // Configure bitcoinj to fetch only headers, not save them to disk, connect to a local fully synced/validated
         // node and to save block headers that are on interval boundaries, as long as they are <1 month old.
 
-        Context.getOrCreate(params).initDash(true, false);
+        //Context.getOrCreate(params).initDash(true, false);
         final BlockStore store = new MemoryBlockStore(params);
         final BlockChain chain = new BlockChain(params, store);
         final PeerGroup peerGroup = new PeerGroup(params, chain);
         System.out.println("Connecting to " + peerAddress + "...");
         peerGroup.addAddress(peerAddress);
-        peerGroup.addAddress(InetAddress.getByName("188.226.228.88"));
+        //peerGroup.addAddress(InetAddress.getByName("188.226.228.88"));
         long now = new Date().getTime() / 1000;
         peerGroup.setFastCatchupTimeSecs(now);
 
@@ -128,6 +136,7 @@ public class BuildCheckpoints {
             @Override
             public void notifyNewBestBlock(StoredBlock block) throws VerificationException {
                 int height = block.getHeight();
+                System.out.println("block height: "+block.getHeight());
                 if (height % CoinDefinition.getIntervalCheckpoints() == 0 && block.getHeader().getTimeSeconds() <= timeAgo) {
                     System.out.println(String.format("Checkpointing block %s at height %d, time %s",
                             block.getHeader().getHash(), block.getHeight(), Utils.dateTimeFormat(block.getHeader().getTime())));

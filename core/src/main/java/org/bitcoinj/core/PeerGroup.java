@@ -443,7 +443,7 @@ public class PeerGroup implements TransactionBroadcaster {
         //DashSpecific
 
 
-
+        // todo: esto es por dash y los masternodes..
         context.setPeerGroupAndBlockChain(this, chain);
         vMinRequiredProtocolVersion = params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.MINIMUM);
     }

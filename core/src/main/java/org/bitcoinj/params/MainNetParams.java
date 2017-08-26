@@ -37,14 +37,14 @@ public class MainNetParams extends AbstractBitcoinNetParams {
         interval = INTERVAL;
         targetTimespan = TARGET_TIMESPAN;
         maxTarget = CoinDefinition.proofOfWorkLimit;
-        dumpedPrivateKeyHeader = 128 + CoinDefinition.AddressHeader;
+        dumpedPrivateKeyHeader = 212;//128 + CoinDefinition.AddressHeader;
         addressHeader = CoinDefinition.AddressHeader;
         p2shHeader = CoinDefinition.p2shHeader;
         acceptableAddressCodes = new int[] { addressHeader, p2shHeader};
         port = CoinDefinition.Port;
         packetMagic = CoinDefinition.PacketMagic;
-        bip32HeaderPub = 0x0488B21E; //The 4 byte header that serializes in base58 to "xpub".
-        bip32HeaderPriv = 0x0488ADE4; //The 4 byte header that serializes in base58 to "xprv"
+        bip32HeaderPub = 0x022D2533;//0x0488B21E; //The 4 byte header that serializes in base58 to "xpub".
+        bip32HeaderPriv = 0X0221312B; //0x0488ADE4; //The 4 byte header that serializes in base58 to "xprv"
         genesisBlock.setDifficultyTarget(CoinDefinition.genesisBlockDifficultyTarget);
         genesisBlock.setTime(CoinDefinition.genesisBlockTime);
         genesisBlock.setNonce(CoinDefinition.genesisBlockNonce);
@@ -57,6 +57,12 @@ public class MainNetParams extends AbstractBitcoinNetParams {
         subsidyDecreaseBlockCount = CoinDefinition.subsidyDecreaseBlockCount;
         spendableCoinbaseDepth = CoinDefinition.spendableCoinbaseDepth;
         String genesisHash = genesisBlock.getHashAsString();
+
+        System.out.println("genesis: "+genesisHash);
+        System.out.println("genesis: "+CoinDefinition.genesisHash);
+
+        System.out.println("genesis merkle: "+genesisBlock.getMerkleRoot().toString());
+
         checkState(genesisHash.equals(CoinDefinition.genesisHash),
                 genesisHash);
 
@@ -134,7 +140,7 @@ public class MainNetParams extends AbstractBitcoinNetParams {
                 0xb5a4b052, 0x21f062d1, 0x72ab89b2, 0x74a45318, 0x8312e6bc, 0xb916965f, 0x8aa7c858, 0xfe7effad,
         };                  */
 
-        strSporkKey = "04549ac134f694c0243f503e8c8a9a986f5de6610049c40b07816809b0d1d06a21b07be27b9bb555931773f62ba6cf35a25fd52f694d4e1106ccd237a7bb899fdd";
+        strSporkKey = "0484698d3ba6ba6e7423fa5cbd6a89e0a9a5348f88d332b44a5cb1a8b7ed2c1eaa335fc8dc4f012cb8241cc0bdafd6ca70c5f5448916e4e6f511bcd746ed57dc50";
     }
 
     private static MainNetParams instance;

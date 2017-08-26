@@ -20,10 +20,9 @@ package org.bitcoinj.core;
 import com.google.common.annotations.*;
 import com.google.common.base.*;
 import com.google.common.collect.*;
-import com.hashengineering.crypto.X11;
 import org.bitcoinj.script.*;
 import org.slf4j.*;
-
+import com.hashengineering.crypto.Hash9;
 import javax.annotation.*;
 import java.io.*;
 import java.math.*;
@@ -120,7 +119,7 @@ public class Block extends Message {
         super(params);
         // Set up a few basic things. We are not complete after this though.
         version = setVersion;
-        difficultyTarget = 0x1d07fff8L;
+        difficultyTarget = 0x1e0ffff0L;
         time = System.currentTimeMillis() / 1000;
         prevBlockHash = Sha256Hash.ZERO_HASH;
 
@@ -273,7 +272,7 @@ public class Block extends Message {
         time = readUint32();
         difficultyTarget = readUint32();
         nonce = readUint32();
-        hash = Sha256Hash.wrapReversed(X11.x11Digest(payload, offset, cursor - offset));
+        hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
         headerBytesValid = serializer.isParseRetainMode();
 
         // transactions
@@ -420,7 +419,7 @@ public class Block extends Message {
         try {
             ByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(HEADER_SIZE);
             writeHeader(bos);
-            return Sha256Hash.wrapReversed(X11.x11Digest(bos.toByteArray()));
+            return Sha256Hash.wrap(Utils.reverseBytes(Hash9.digest(bos.toByteArray())));
         } catch (IOException e) {
             throw new RuntimeException(e); // Cannot happen.
         }
@@ -442,8 +441,9 @@ public class Block extends Message {
      */
     @Override
     public Sha256Hash getHash() {
-        if (hash == null)
+        if (hash == null) {
             hash = calculateHash();
+        }
         return hash;
     }
 
@@ -563,11 +563,15 @@ public class Block extends Message {
 
         if (h.compareTo(target) > 0) {
             // Proof of work check failed!
-            if (throwException)
-                throw new VerificationException("Hash is higher than target: " + getHashAsString() + " vs "
-                        + target.toString(16));
-            else
-                return false;
+            log.debug("Hash is higher than target: " + getHashAsString() + " vs " + target.toString(16));
+            return true;
+            // todo: commented for POS implementation, i have to verify this in another way..
+            //if (throwException) {
+            //    log.info("Hash is higher than target: " + getHashAsString() + " vs " + target.toString(16));
+                //throw new VerificationException("Hash is higher than target: " + getHashAsString() + " vs "
+                //        + target.toString(16));
+            //}else
+            //    return false;
         }
         return true;
     }

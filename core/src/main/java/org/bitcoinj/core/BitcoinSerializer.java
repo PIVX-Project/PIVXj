@@ -267,6 +267,10 @@ public class BitcoinSerializer extends MessageSerializer {
         }
         else if(command.equals("govsync")) {
             return new GovernanceSyncMessage(params);
+        }else if(command.equals("dseg")){
+            log.warn("dseg message arrived, No support for deserializing it {}",command);
+            //Get Masternode list or specific entry
+            return null;
         }
         else{
             log.warn("No support for deserializing message with name {}", command);

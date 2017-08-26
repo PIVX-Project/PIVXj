@@ -53,7 +53,7 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
         addressHeader = CoinDefinition.testnetAddressHeader;
         p2shHeader = CoinDefinition.testnetp2shHeader;
         acceptableAddressCodes = new int[] { addressHeader, p2shHeader };
-        dumpedPrivateKeyHeader = 128 + CoinDefinition.testnetAddressHeader;
+        dumpedPrivateKeyHeader = 239;//128 + CoinDefinition.testnetAddressHeader;
         genesisBlock.setTime(CoinDefinition.testnetGenesisBlockTime);
         genesisBlock.setDifficultyTarget(CoinDefinition.testnetGenesisBlockDifficultyTarget);
         genesisBlock.setNonce(CoinDefinition.testnetGenesisBlockNonce);
@@ -63,15 +63,16 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
 
         if(CoinDefinition.supportsTestNet)
             checkState(genesisHash.equals(CoinDefinition.testnetGenesisHash));
-        alertSigningKey = HEX.decode(CoinDefinition.TESTNET_SATOSHI_KEY);
+        //todo: add alert signing key..
+        //alertSigningKey = HEX.decode(CoinDefinition.TESTNET_SATOSHI_KEY);
 
         dnsSeeds = CoinDefinition.testnetDnsSeeds;
 
         addrSeeds = null;
-        bip32HeaderPub = 0x043587cf;
-        bip32HeaderPriv = 0x04358394 ;
+        bip32HeaderPub =  0x3a8061a0; //0x043587cf;
+        bip32HeaderPriv = 0x3a805837;  //0x04358394 ;
 
-        strSporkKey = "046f78dcf911fbd61910136f7f0f8d90578f68d0b3ac973b5040fb7afb501b5939f39b108b0569dca71488f5bbf498d92e4d1194f6f941307ffd95f75e76869f0e";
+        strSporkKey = "04348C2F50F90267E64FACC65BFDC9D0EB147D090872FB97ABAE92E9A36E6CA60983E28E741F8E7277B11A7479B626AC115BA31463AC48178A5075C5A9319D4A38";
 
      //   bip32HeaderPub = 0x043587CF;
      //   bip32HeaderPriv = 0x04358394;

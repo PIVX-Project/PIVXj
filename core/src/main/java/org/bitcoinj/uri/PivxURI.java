@@ -67,7 +67,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Gary Rowe (BIP21 support)
  * @see <a href="https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki">BIP 0021</a>
  */
-public class BitcoinURI {
+public class PivxURI {
     // Not worth turning into an enum
     public static final String FIELD_MESSAGE = "message";
     public static final String FIELD_LABEL = "label";
@@ -93,12 +93,12 @@ public class BitcoinURI {
     private final Map<String, Object> parameterMap = new LinkedHashMap<String, Object>();
 
     /**
-     * Constructs a new BitcoinURI from the given string. Can be for any network.
+     * Constructs a new PivxURI from the given string. Can be for any network.
      *
      * @param uri The raw URI data to be parsed (see class comments for accepted formats)
      * @throws BitcoinURIParseException if the URI is not syntactically or semantically valid.
      */
-    public BitcoinURI(String uri) throws BitcoinURIParseException {
+    public PivxURI(String uri) throws BitcoinURIParseException {
         this(null, uri);
     }
 
@@ -111,7 +111,7 @@ public class BitcoinURI {
      *
      * @throws BitcoinURIParseException If the input fails Bitcoin URI syntax and semantic checks.
      */
-    public BitcoinURI(@Nullable NetworkParameters params, String input) throws BitcoinURIParseException {
+    public PivxURI(@Nullable NetworkParameters params, String input) throws BitcoinURIParseException {
         checkNotNull(input);
 
         String scheme = null == params
@@ -322,7 +322,7 @@ public class BitcoinURI {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder("BitcoinURI[");
+        StringBuilder builder = new StringBuilder("PivxURI[");
         boolean first = true;
         for (Map.Entry<String, Object> entry : parameterMap.entrySet()) {
             if (first) {

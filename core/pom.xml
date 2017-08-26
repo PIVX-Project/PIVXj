@@ -20,15 +20,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.dashj</groupId>
-        <artifactId>dashj-parent</artifactId>
+        <groupId>org.pivxj</groupId>
+        <artifactId>pivxj-parent</artifactId>
         <version>0.14.3-12.1</version>
     </parent>
 
-    <artifactId>dashj-core</artifactId>
+    <artifactId>pivxj-core</artifactId>
 
     <name>dashj</name>
-    <description>A Java Dash library</description>
+    <description>A Java Pivx library</description>
 
     <packaging>jar</packaging>
 

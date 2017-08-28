@@ -1,10 +1,6 @@
-[![Build Status](https://travis-ci.org/bitcoinj/bitcoinj.png?branch=master)](https://travis-ci.org/bitcoinj/bitcoinj)   [![Coverage Status](https://coveralls.io/repos/bitcoinj/bitcoinj/badge.png?branch=master)](https://coveralls.io/r/bitcoinj/bitcoinj?branch=master) 
+### Welcome to pivxj
 
-[![Visit our IRC channel](https://kiwiirc.com/buttons/irc.freenode.net/bitcoinj.png)](https://kiwiirc.com/client/irc.freenode.net/bitcoinj)
-
-### Welcome to bitcoinj
-
-The bitcoinj library is a Java implementation of the Bitcoin protocol, which allows it to maintain a wallet and send/receive transactions without needing a local copy of Bitcoin Core. It comes with full documentation and some example apps showing how to use it.
+The pivxj library is a Java implementation of the PIVX protocol, which allows it to maintain a wallet and send/receive transactions without needing a local copy of PIVX Core. It comes with full documentation and some example apps showing how to use it.
 
 ### Technologies
 
@@ -41,18 +37,15 @@ These are found in the `examples` module.
 
 #### Forwarding service
 
-This will download the block chain and eventually print a Bitcoin address that it has generated.
+This will download the block chain and eventually print a PIVX address that it has generated.
 
 If you send coins to that address, it will forward them on to the address you specified.
 
 ```
   cd examples
-  mvn exec:java -Dexec.mainClass=org.bitcoinj.examples.ForwardingService -Dexec.args="<insert a bitcoin address here>"
+  mvn exec:java -Dexec.mainClass=org.pivxj.examples.ForwardingService -Dexec.args="<insert a pivx address here>"
 ```
 
 Note that this example app *does not use checkpointing*, so the initial chain sync will be pretty slow. You can make an app that starts up and does the initial sync much faster by including a checkpoints file; see the documentation for
 more info on this technique.
 
-### Where next?
-
-Now you are ready to [follow the tutorial](https://bitcoinj.github.io/getting-started).

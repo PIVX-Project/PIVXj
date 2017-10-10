@@ -462,13 +462,14 @@ public class Peer extends PeerSocketHandler {
         else
         {
             long current = Utils.currentTimeMillis();
-            dataReceived += m.getMessageSize();
+            if (m!=null) {
+                dataReceived += m.getMessageSize();
 
-            if(count % 50 == 0)
-            {
-                log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " +(current-startTime)/1000 + " s:" + (dataReceived / 1024)/(current-startTime)*1000 + " KB/s , msgType: "+m.toString());
+                if (count % 50 == 0) {
+                    log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " + (current - startTime) / 1000 + " s:" + (dataReceived / 1024) / (current - startTime) * 1000 + " KB/s , msgType: " + m.toString());
+                }
+                count++;
             }
-            count++;
         }
 
         //System.out.println("process message: "+m.toString());
@@ -825,7 +826,7 @@ public class Peer extends PeerSocketHandler {
             TransactionConfidence confidence = tx.getConfidence();
             confidence.setSource(TransactionConfidence.Source.NETWORK);
 
-            //Dash Specific
+            //PIVX Specific
             // todo furszy: commented dash instantSend for now.
             if (context.instantSend!=null)
                 context.instantSend.syncTransaction(tx, null);

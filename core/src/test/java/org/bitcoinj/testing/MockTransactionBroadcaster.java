@@ -97,6 +97,11 @@ public class MockTransactionBroadcaster implements TransactionBroadcaster {
         }
     }
 
+    @Override
+    public TransactionBroadcast broadcastTransaction(Transaction tx, boolean isSwiftX) {
+        throw new IllegalStateException("method not implemented");
+    }
+
     public Transaction waitForTransaction() {
         return waitForTxFuture().tx;
     }

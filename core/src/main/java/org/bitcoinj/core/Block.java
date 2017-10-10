@@ -20,6 +20,7 @@ package org.bitcoinj.core;
 import com.google.common.annotations.*;
 import com.google.common.base.*;
 import com.google.common.collect.*;
+import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.script.*;
 import org.slf4j.*;
 import com.hashengineering.crypto.Hash9;
@@ -46,6 +47,7 @@ import static org.bitcoinj.core.Sha256Hash.*;
  * <p>Instances of this class are not safe for use by multiple threads.</p>
  */
 public class Block extends Message {
+
     /**
      * Flags used to control which elements of block validation are done on
      * received blocks.
@@ -59,8 +61,20 @@ public class Block extends Message {
 
     /** How many bytes are required to represent a block header WITHOUT the trailing 00 length byte. */
     public static final int HEADER_SIZE = 80;
+    /*** Zerocoin blocks header size */
+    public static final int ZEROCOIN_HEADER_SIZE = 112;
+    /** Zerocoin starting block height */
+    public static final long ZEROCOIN_STARTING_BLOCK_HEIGHT = 201564;
 
     static final long ALLOWED_TIME_DRIFT = 2 * 60 * 60; // Same value as Bitcoin Core.
+
+    /**
+     * Zerocoin block version
+     * Includes an accumulator on the block.
+     */
+    public static final int ZEROCOIN_BLOCK_VERSION = 4;
+
+    public static final boolean ACTIVATE_ZEROCOIN = false;
 
     /**
      * A constant shared by the entire network: how large in bytes a block is allowed to be. One day we may have to
@@ -106,6 +120,12 @@ public class Block extends Message {
     /** Stores the hash of the block. If null, getHash() will recalculate it. */
     private Sha256Hash hash;
 
+    /**
+     * Zerocoin accumulator
+     *
+     */
+    private Sha256Hash zeroCoinAccumulator;
+
     protected boolean headerBytesValid;
     protected boolean transactionBytesValid;
 
@@ -123,7 +143,7 @@ public class Block extends Message {
         time = System.currentTimeMillis() / 1000;
         prevBlockHash = Sha256Hash.ZERO_HASH;
 
-        length = HEADER_SIZE;
+        length = getHeaderSize();
     }
 
     /**
@@ -232,7 +252,7 @@ public class Block extends Message {
      */
     protected void parseTransactions(final int transactionsOffset) throws ProtocolException {
         cursor = transactionsOffset;
-        optimalEncodingMessageSize = HEADER_SIZE;
+        optimalEncodingMessageSize = getHeaderSize();
         if (payload.length == cursor) {
             // This message is just a header, it has no transactions.
             transactionBytesValid = false;
@@ -272,11 +292,19 @@ public class Block extends Message {
         time = readUint32();
         difficultyTarget = readUint32();
         nonce = readUint32();
-        hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
+        int headerSize = getHeaderSize();
+        if (isZerocoin()){
+            // accumulator
+            zeroCoinAccumulator = readHash();
+            hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
+        }else {
+            hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
+        }
+
         headerBytesValid = serializer.isParseRetainMode();
 
         // transactions
-        parseTransactions(offset + HEADER_SIZE);
+        parseTransactions(offset + headerSize);
         length = cursor - offset;
     }
     
@@ -289,9 +317,10 @@ public class Block extends Message {
 
     // default for testing
     void writeHeader(OutputStream stream) throws IOException {
+        int headerSize = getHeaderSize();
         // try for cached write first
-        if (headerBytesValid && payload != null && payload.length >= offset + HEADER_SIZE) {
-            stream.write(payload, offset, HEADER_SIZE);
+        if (headerBytesValid && payload != null && payload.length >= offset + headerSize) {
+            stream.write(payload, offset, headerSize);
             return;
         }
         // fall back to manual write
@@ -301,6 +330,17 @@ public class Block extends Message {
         Utils.uint32ToByteStreamLE(time, stream);
         Utils.uint32ToByteStreamLE(difficultyTarget, stream);
         Utils.uint32ToByteStreamLE(nonce, stream);
+        if (isZerocoin()){
+            if (zeroCoinAccumulator!=null) {
+                stream.write(zeroCoinAccumulator.getReversedBytes());
+            }else {
+                stream.write(new byte[32]);
+            }
+        }
+    }
+
+    public int getHeaderSize(){
+        return isZerocoin()?ZEROCOIN_HEADER_SIZE:HEADER_SIZE;
     }
 
     private void writeTransactions(OutputStream stream) throws IOException {
@@ -309,10 +349,10 @@ public class Block extends Message {
         if (transactions == null) {
             return;
         }
-
+        int headerSize = getHeaderSize();
         // confirmed we must have transactions either cached or as objects.
         if (transactionBytesValid && payload != null && payload.length >= offset + length) {
-            stream.write(payload, offset + HEADER_SIZE, length - HEADER_SIZE);
+            stream.write(payload, offset + headerSize, length - headerSize);
             return;
         }
 
@@ -347,7 +387,7 @@ public class Block extends Message {
 
         // At least one of the two cacheable components is invalid
         // so fall back to stream write since we can't be sure of the length.
-        ByteArrayOutputStream stream = new UnsafeByteArrayOutputStream(length == UNKNOWN_LENGTH ? HEADER_SIZE + guessTransactionsLength() : length);
+        ByteArrayOutputStream stream = new UnsafeByteArrayOutputStream(length == UNKNOWN_LENGTH ? getHeaderSize() + guessTransactionsLength() : length);
         try {
             writeHeader(stream);
             writeTransactions(stream);
@@ -374,7 +414,7 @@ public class Block extends Message {
      */
     private int guessTransactionsLength() {
         if (transactionBytesValid)
-            return payload.length - HEADER_SIZE;
+            return payload.length - getHeaderSize();
         if (transactions == null)
             return 0;
         int len = VarInt.sizeOf(transactions.size());
@@ -417,9 +457,16 @@ public class Block extends Message {
      */
     private Sha256Hash calculateHash() {
         try {
-            ByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(HEADER_SIZE);
+            ByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(getHeaderSize());
             writeHeader(bos);
-            return Sha256Hash.wrap(Utils.reverseBytes(Hash9.digest(bos.toByteArray())));
+            return Sha256Hash.wrap(
+                    Utils.reverseBytes(
+                            isZerocoin()?
+                                    Sha256Hash.hashTwice(bos.toByteArray())
+                                    :
+                                    Hash9.digest(bos.toByteArray())
+                            )
+                    );
         } catch (IOException e) {
             throw new RuntimeException(e); // Cannot happen.
         }
@@ -447,6 +494,27 @@ public class Block extends Message {
         return hash;
     }
 
+    public boolean isZerocoin() {
+        if (!ACTIVATE_ZEROCOIN) {
+            return false;
+        }else {
+            return version == ZEROCOIN_BLOCK_VERSION;
+        }
+    }
+
+    public static boolean isZerocoinHeight(long height) {
+        if (!ACTIVATE_ZEROCOIN) {
+            return false;
+        }else
+            return height>=ZEROCOIN_STARTING_BLOCK_HEIGHT;
+    }
+
+    public static int getHeaderSize(long height){
+        if (!ACTIVATE_ZEROCOIN) {
+            return Block.HEADER_SIZE;
+        }else
+            return Block.isZerocoinHeight(height)?Block.ZEROCOIN_HEADER_SIZE:Block.HEADER_SIZE;
+    }
 
     /**
      * The number that is one greater than the largest representable SHA-256

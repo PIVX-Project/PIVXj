@@ -256,6 +256,10 @@ public class Wallet extends BaseTaggableObject
         return new Wallet(params, new KeyChainGroup(params, watchKey));
     }
 
+    public static Wallet fromWatchingKey(NetworkParameters params, DeterministicKey watchKey, DeterministicKeyChain.KeyChainType keyChainType) {
+        return new Wallet(params, new KeyChainGroup(params, watchKey,keyChainType));
+    }
+
     /**
      * Creates a wallet that tracks payments to and from the HD key hierarchy rooted by the given watching key. A
      * watching key corresponds to account zero in the recommended BIP32 key hierarchy. The key is specified in base58
@@ -266,6 +270,13 @@ public class Wallet extends BaseTaggableObject
         final DeterministicKey watchKey = DeterministicKey.deserializeB58(null, watchKeyB58, params);
         watchKey.setCreationTimeSeconds(creationTimeSeconds);
         return fromWatchingKey(params, watchKey);
+    }
+
+    public static Wallet fromWatchingKeyB58(NetworkParameters params, String watchKeyB58, long creationTimeSeconds, DeterministicKeyChain.KeyChainType keyChainType) {
+        DeterministicKey parent = null;
+        final DeterministicKey watchKey = DeterministicKey.deserializeB58(parent, watchKeyB58, params,keyChainType);
+        watchKey.setCreationTimeSeconds(creationTimeSeconds);
+        return fromWatchingKey(params, watchKey,keyChainType);
     }
 
     /**
@@ -296,7 +307,7 @@ public class Wallet extends BaseTaggableObject
         if (this.keyChainGroup.numKeys() == 0)
             this.keyChainGroup.createAndActivateNewHDChain();
         // wallet version 1 if the key chain is a bip44
-        this.version = this.keyChainGroup.getActiveKeyChain().getKeyChainType() == DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY? 1 : 0;
+        //this.version = this.keyChainGroup.getActiveKeyChain().getKeyChainType() == DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY? 1 : 0;
         watchedScripts = Sets.newHashSet();
         unspent = new HashMap<Sha256Hash, Transaction>();
         spent = new HashMap<Sha256Hash, Transaction>();
@@ -4901,7 +4912,7 @@ public class Wallet extends BaseTaggableObject
             if (needAtLeastReferenceFee && fees.compareTo(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE) < 0)
                 fees = Transaction.REFERENCE_DEFAULT_MIN_TX_FEE;
 
-            //Dash instantSend
+            //PIVX instantSend
             if(req.useInstantSend) {
                 fees = Coin.valueOf(max(TransactionLockRequest.MIN_FEE.getValue(), TransactionLockRequest.MIN_FEE.multiply(lastCalculatedInputs).getValue()));
             }

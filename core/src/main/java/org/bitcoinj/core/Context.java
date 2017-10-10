@@ -237,7 +237,8 @@ public class Context {
         }
 
         //other functions
-        darkSendPool.startBackgroundProcessing();
+        // todo: furszy
+        //darkSendPool.startBackgroundProcessing();
     }
 
     public void setPeerGroupAndBlockChain(PeerGroup peerGroup, AbstractBlockChain chain)
@@ -251,9 +252,11 @@ public class Context {
             sporkManager.setBlockChain(chain);
             masternodeManager.setBlockChain(chain);
             masternodeSync.setBlockChain(chain);
-            instantSend.setBlockChain(chain);
         }else {
             log.error("##### Pivx init not called!, this is going to be an issue in the future");
+        }
+        if (instantSend!=null) {
+            instantSend.setBlockChain(chain);
         }
     }
 

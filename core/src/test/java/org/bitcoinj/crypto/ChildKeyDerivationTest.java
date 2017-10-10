@@ -19,6 +19,7 @@ package org.bitcoinj.crypto;
 
 import org.bitcoinj.core.*;
 import org.bitcoinj.params.*;
+import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.junit.*;
 import org.spongycastle.crypto.params.*;
 
@@ -222,9 +223,9 @@ public class ChildKeyDerivationTest {
             assertEquals(DeterministicKey.deserializeB58(priv58, params), key1);
             assertEquals(DeterministicKey.deserializeB58(null, pub58, params).getPubKeyPoint(), key1.getPubKeyPoint());
             assertEquals(DeterministicKey.deserializeB58(pub58, params).getPubKeyPoint(), key1.getPubKeyPoint());
-            assertEquals(DeterministicKey.deserialize(params, priv, null), key1);
+            assertEquals(DeterministicKey.deserialize(params, priv, null, DeterministicKeyChain.KeyChainType.BIP32), key1);
             assertEquals(DeterministicKey.deserialize(params, priv), key1);
-            assertEquals(DeterministicKey.deserialize(params, pub, null).getPubKeyPoint(), key1.getPubKeyPoint());
+            assertEquals(DeterministicKey.deserialize(params, pub, null,DeterministicKeyChain.KeyChainType.BIP32).getPubKeyPoint(), key1.getPubKeyPoint());
             assertEquals(DeterministicKey.deserialize(params, pub).getPubKeyPoint(), key1.getPubKeyPoint());
         }
         {
@@ -234,8 +235,8 @@ public class ChildKeyDerivationTest {
             final byte[] priv = key2.serializePrivate(params);
             assertEquals(DeterministicKey.deserializeB58(key1, priv58, params), key2);
             assertEquals(DeterministicKey.deserializeB58(key1, pub58, params).getPubKeyPoint(), key2.getPubKeyPoint());
-            assertEquals(DeterministicKey.deserialize(params, priv, key1), key2);
-            assertEquals(DeterministicKey.deserialize(params, pub, key1).getPubKeyPoint(), key2.getPubKeyPoint());
+            assertEquals(DeterministicKey.deserialize(params, priv, key1,DeterministicKeyChain.KeyChainType.BIP32), key2);
+            assertEquals(DeterministicKey.deserialize(params, pub, key1,DeterministicKeyChain.KeyChainType.BIP32).getPubKeyPoint(), key2.getPubKeyPoint());
         }
     }
 
@@ -247,8 +248,8 @@ public class ChildKeyDerivationTest {
         DeterministicKey key3 = HDKeyDerivation.deriveChildKey(key2, ChildNumber.ZERO_HARDENED);
         DeterministicKey key4 = HDKeyDerivation.deriveChildKey(key3, ChildNumber.ZERO_HARDENED);
         assertEquals(key4.getPath().size(), 3);
-        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), key3).getPath().size(), 3);
-        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), null).getPath().size(), 1);
+        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), key3,DeterministicKeyChain.KeyChainType.BIP32).getPath().size(), 3);
+        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), null,DeterministicKeyChain.KeyChainType.BIP32).getPath().size(), 1);
         assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params)).getPath().size(), 1);
     }
 

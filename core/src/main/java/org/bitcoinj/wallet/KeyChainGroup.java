@@ -97,6 +97,14 @@ public class KeyChainGroup implements KeyBag {
         this(params, null, ImmutableList.of(DeterministicKeyChain.watch(watchKey)), null, null);
     }
 
+    /**
+     * Creates a keychain group with no basic chain, and an HD chain that is watching the given watching key.
+     * This HAS to be an account key as returned by {@link DeterministicKeyChain#getWatchingKey()}.
+     */
+    public KeyChainGroup(NetworkParameters params, DeterministicKey watchKey,DeterministicKeyChain.KeyChainType keyChainType) {
+        this(params, null, ImmutableList.of(DeterministicKeyChain.watch(watchKey,keyChainType)), null, null);
+    }
+
     // Used for deserialization.
     private KeyChainGroup(NetworkParameters params, @Nullable BasicKeyChain basicKeyChain, List<DeterministicKeyChain> chains,
                           @Nullable EnumMap<KeyChain.KeyPurpose, DeterministicKey> currentKeys, @Nullable KeyCrypter crypter) {
@@ -240,7 +248,6 @@ public class KeyChainGroup implements KeyBag {
             return freshAddress;
         } else {
             DeterministicKey deterministicKey = freshKey(purpose);
-            System.out.println("fresh address key path: "+deterministicKey.getPathAsString());
             return deterministicKey.toAddress(params);
         }
     }

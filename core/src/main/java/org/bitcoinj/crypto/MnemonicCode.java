@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -119,7 +120,6 @@ public class MnemonicCode {
      * Convert mnemonic word list to seed.
      */
     public static byte[] toSeed(List<String> words, String passphrase) {
-
         // To create binary seed from mnemonic, we use PBKDF2 function
         // with mnemonic sentence (in UTF-8) used as a password and
         // string "mnemonic" + passphrase (again in UTF-8) used as a
@@ -134,6 +134,7 @@ public class MnemonicCode {
         byte[] seed = PBKDF2SHA512.derive(pass, salt, PBKDF2_ROUNDS, 64);
         watch.stop();
         log.info("PBKDF2 took {}", watch);
+        System.out.println("MnemonicCode class: "+ Arrays.toString(words.toArray())+", passphrase: "+passphrase+ ", \ntoSeed: "+HEX.encode(seed));
         return seed;
     }
 

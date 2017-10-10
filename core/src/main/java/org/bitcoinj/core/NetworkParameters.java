@@ -152,9 +152,9 @@ public abstract class NetworkParameters {
             // Cannot happen.
             throw new RuntimeException(e);
         }
-        System.out.println(tx.getOutput(0).toString());
+        //System.out.println(tx.getOutput(0).toString());
         genesisBlock.addTransaction(tx);
-        System.out.println("genesis tx hash: "+tx.getHashAsString());
+        //System.out.println("genesis tx hash: "+tx.getHashAsString());
         // genesis tx should be -> 1b2ef6e2f28be914103a277377ae7729dcd125dfeb8bf97bd5964ba72b6dc39b
         if (!tx.getHashAsString().equals("1b2ef6e2f28be914103a277377ae7729dcd125dfeb8bf97bd5964ba72b6dc39b")) throw new IllegalStateException("invalid genesis tx: "+tx.getHashAsString());
         return genesisBlock;

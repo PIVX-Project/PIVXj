@@ -578,7 +578,7 @@ public abstract class AbstractBlockChain {
             StoredBlock newBlock = storedPrev.build(block);
             boolean haveNewBestChain = newBlock.moreWorkThan(head);
             if (haveNewBestChain) {
-                log.info("Block is causing a re-organize");
+                log.info("Block is causing a re-organize, block height: "+newBlock.getHeight());
             } else {
                 StoredBlock splitPoint = findSplit(newBlock, head, blockStore);
                 if (splitPoint != null && splitPoint.equals(newBlock)) {
@@ -759,6 +759,7 @@ public abstract class AbstractBlockChain {
         log.info("New chain head: {}", newChainHead.getHeader().getHashAsString());
         log.info("Split at block: {}", splitPoint.getHeader().getHashAsString());
         // Then build a list of all blocks in the old part of the chain and the new part.
+        System.out.println("head work: "+head.getChainWork()+ ", splitPoint: "+splitPoint.getChainWork());
         final LinkedList<StoredBlock> oldBlocks = getPartialChain(head, splitPoint, blockStore);
         final LinkedList<StoredBlock> newBlocks = getPartialChain(newChainHead, splitPoint, blockStore);
         // Disconnect each transaction in the previous main chain that is no longer in the new main chain

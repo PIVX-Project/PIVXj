@@ -34,6 +34,7 @@ public class LevelDBBlockStore implements BlockStore {
     private final Context context;
     private DB db;
     private final ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
+    private final ByteBuffer zerocoinBuffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE_ZEROCOIN);
     private final File path;
 
     /** Creates a LevelDB SPV block store using the JNI/C++ version of LevelDB. */
@@ -76,6 +77,8 @@ public class LevelDBBlockStore implements BlockStore {
 
     @Override
     public synchronized void put(StoredBlock block) throws BlockStoreException {
+        ByteBuffer buffer;
+        buffer = block.getHeader().isZerocoin()? zerocoinBuffer:this.buffer;
         buffer.clear();
         block.serializeCompact(buffer);
         db.put(block.getHeader().getHash().getBytes(), buffer.array());

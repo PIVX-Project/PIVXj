@@ -33,6 +33,16 @@ public class DefaultKeyChainFactory implements KeyChainFactory {
     }
 
     @Override
+    public DeterministicKeyChain makeKeyChain(Protos.Key key, Protos.Key firstSubKey, DeterministicSeed seed, KeyCrypter crypter, boolean isMarried, DeterministicKeyChain.KeyChainType keyChainType) {
+        DeterministicKeyChain chain;
+        if (isMarried)
+            chain = new MarriedKeyChain(seed, crypter);
+        else
+            chain = new DeterministicKeyChain(seed, crypter,keyChainType);
+        return chain;
+    }
+
+    @Override
     public DeterministicKeyChain makeWatchingKeyChain(Protos.Key key, Protos.Key firstSubKey, DeterministicKey accountKey,
                                                       boolean isFollowingKey, boolean isMarried) throws UnreadableWalletException {
         if (!accountKey.getPath().equals(DeterministicKeyChain.ACCOUNT_ZERO_PATH))

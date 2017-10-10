@@ -21,6 +21,7 @@ import org.bitcoinj.store.BlockStoreException;
 import com.google.common.base.Objects;
 
 import java.math.BigInteger;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.util.Locale;
 
@@ -42,6 +43,10 @@ public class StoredBlock {
     public static final int CHAIN_WORK_BYTES = 12;
     public static final byte[] EMPTY_BYTES = new byte[CHAIN_WORK_BYTES];
     public static final int COMPACT_SERIALIZED_SIZE = Block.HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
+    public static final int COMPACT_SERIALIZED_SIZE_ZEROCOIN = Block.ZEROCOIN_HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
+
+    /** Compact size (regular or zerocoin) */
+    private int compactHeaderSize;
 
     private Block header;
     private BigInteger chainWork;
@@ -51,6 +56,7 @@ public class StoredBlock {
         this.header = header;
         this.chainWork = chainWork;
         this.height = height;
+        this.compactHeaderSize = header.isZerocoin()?COMPACT_SERIALIZED_SIZE_ZEROCOIN:COMPACT_SERIALIZED_SIZE;
     }
 
     /**
@@ -128,7 +134,12 @@ public class StoredBlock {
         // Using unsafeBitcoinSerialize here can give us direct access to the same bytes we read off the wire,
         // avoiding serialization round-trips.
         byte[] bytes = getHeader().unsafeBitcoinSerialize();
-        buffer.put(bytes, 0, Block.HEADER_SIZE);  // Trim the trailing 00 byte (zero transactions).
+        try {
+            buffer.put(bytes, 0, header.getHeaderSize());  // Trim the trailing 00 byte (zero transactions).
+        }catch (BufferOverflowException e){
+            System.out.println("BufferOverflowException, bytes: "+bytes.length+", headerSize: "+header.getHeaderSize()+", hash: "+header.getHashAsString());
+            throw e;
+        }
     }
 
     /** De-serializes the stored block from a custom packed format. Used by {@link CheckpointManager}. */
@@ -137,8 +148,9 @@ public class StoredBlock {
         buffer.get(chainWorkBytes);
         BigInteger chainWork = new BigInteger(1, chainWorkBytes);
         int height = buffer.getInt();  // +4 bytes
-        byte[] header = new byte[Block.HEADER_SIZE + 1];    // Extra byte for the 00 transactions length.
-        buffer.get(header, 0, Block.HEADER_SIZE);
+        int headerSize = Block.getHeaderSize(height);
+        byte[] header = new byte[headerSize + 1];    // Extra byte for the 00 transactions length.
+        buffer.get(header, 0, headerSize);
         return new StoredBlock(params.getDefaultSerializer().makeBlock(header), chainWork, height);
     }
 

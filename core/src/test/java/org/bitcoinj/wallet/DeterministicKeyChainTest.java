@@ -137,6 +137,11 @@ public class DeterministicKeyChainTest {
             }
 
             @Override
+            public DeterministicKeyChain makeKeyChain(Protos.Key key, Protos.Key firstSubKey, DeterministicSeed seed, KeyCrypter crypter, boolean isMarried, DeterministicKeyChain.KeyChainType keyChainType) {
+                return new AccountOneChain(crypter, seed);
+            }
+
+            @Override
             public DeterministicKeyChain makeWatchingKeyChain(Protos.Key key, Protos.Key firstSubKey, DeterministicKey accountKey, boolean isFollowingKey, boolean isMarried) {
                 throw new UnsupportedOperationException();
             }

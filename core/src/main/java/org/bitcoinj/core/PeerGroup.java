@@ -2140,12 +2140,21 @@ public class PeerGroup implements TransactionBroadcaster {
     }
 
     /**
-     * Calls {@link PeerGroup#broadcastTransaction(Transaction,int)} with getMinBroadcastConnections() as the number
+     * Calls {@link PeerGroup#broadcastTransaction(Transaction,int,boolean)} with getMinBroadcastConnections() as the number
      * of connections to wait for before commencing broadcast.
      */
     @Override
     public TransactionBroadcast broadcastTransaction(final Transaction tx) {
-        return broadcastTransaction(tx, Math.max(1, getMinBroadcastConnections()));
+        return broadcastTransaction(tx, Math.max(1, getMinBroadcastConnections()),false);
+    }
+
+    /**
+     * Calls {@link PeerGroup#broadcastTransaction(Transaction,int,boolean)} with getMinBroadcastConnections() as the number
+     * of connections to wait for before commencing broadcast.
+     */
+    @Override
+    public TransactionBroadcast broadcastTransaction(final Transaction tx,boolean isSwiftX) {
+        return broadcastTransaction(tx, Math.max(1, getMinBroadcastConnections()),isSwiftX);
     }
 
     /**
@@ -2166,14 +2175,14 @@ public class PeerGroup implements TransactionBroadcaster {
      * <p>The returned {@link org.bitcoinj.core.TransactionBroadcast} object can be used to get progress feedback,
      * which is calculated by watching the transaction propagate across the network and be announced by peers.</p>
      */
-    public TransactionBroadcast broadcastTransaction(final Transaction tx, final int minConnections) {
+    public TransactionBroadcast broadcastTransaction(final Transaction tx, final int minConnections, boolean isSwiftX) {
         // If we don't have a record of where this tx came from already, set it to be ourselves so Peer doesn't end up
         // redownloading it from the network redundantly.
         if (tx.getConfidence().getSource().equals(TransactionConfidence.Source.UNKNOWN)) {
             log.info("Transaction source unknown, setting to SELF: {}", tx.getHashAsString());
             tx.getConfidence().setSource(TransactionConfidence.Source.SELF);
         }
-        final TransactionBroadcast broadcast = new TransactionBroadcast(this, tx);
+        final TransactionBroadcast broadcast = new TransactionBroadcast(this, tx,isSwiftX);
         broadcast.setMinConnections(minConnections);
         // Send the TX to the wallet once we have a successful broadcast.
         Futures.addCallback(broadcast.future(), new FutureCallback<Transaction>() {

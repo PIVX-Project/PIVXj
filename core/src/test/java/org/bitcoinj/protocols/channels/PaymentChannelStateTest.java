@@ -98,6 +98,12 @@ public class PaymentChannelStateTest extends TestWithWallet {
                 fail();
                 return null;
             }
+
+            @Override
+            public TransactionBroadcast broadcastTransaction(Transaction tx, boolean isSwiftX) {
+                fail();
+                return null;
+            }
         }));
         sendMoneyToWallet(AbstractBlockChain.NewBlockType.BEST_CHAIN, COIN);
         chain = new BlockChain(PARAMS, wallet, blockStore); // Recreate chain as sendMoneyToWallet will confuse it
@@ -112,6 +118,11 @@ public class PaymentChannelStateTest extends TestWithWallet {
                 SettableFuture<Transaction> future = SettableFuture.create();
                 broadcasts.add(new TxFuturePair(tx, future));
                 return TransactionBroadcast.createMockBroadcast(tx, future);
+            }
+
+            @Override
+            public TransactionBroadcast broadcastTransaction(Transaction tx, boolean isSwiftX) {
+                throw new IllegalStateException("method not implemented");
             }
         };
     }

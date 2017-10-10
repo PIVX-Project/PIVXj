@@ -23,4 +23,5 @@ package org.bitcoinj.core;
 public interface TransactionBroadcaster {
     /** Broadcast the given transaction on the network */
     TransactionBroadcast broadcastTransaction(final Transaction tx);
+    TransactionBroadcast broadcastTransaction(final Transaction tx,boolean isSwiftX);
 }

@@ -85,6 +85,7 @@ public class BlockChain extends AbstractBlockChain {
     @Override
     protected StoredBlock addToBlockStore(StoredBlock storedPrev, Block blockHeader, TransactionOutputChanges txOutChanges)
             throws BlockStoreException, VerificationException {
+        //System.out.println("Block number: "+(storedPrev.getHeight()+1)+" work: " +blockHeader.getWork());
         StoredBlock newBlock = storedPrev.build(blockHeader);
         blockStore.put(newBlock);
         return newBlock;

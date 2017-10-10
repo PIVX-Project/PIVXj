@@ -31,6 +31,7 @@ import com.google.common.io.Resources;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import sun.applet.Main;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -129,7 +130,7 @@ public class BuildCheckpoints {
         long now = new Date().getTime() / 1000;
         peerGroup.setFastCatchupTimeSecs(now);
 
-        final long timeAgo = now - (86400 * options.valueOf(daysFlag));
+        final long timeAgo = now - (86400 * 170);//options.valueOf(daysFlag));
         System.out.println("Checkpointing up to " + Utils.dateTimeFormat(timeAgo * 1000));
 
         chain.addNewBestBlockListener(Threading.SAME_THREAD, new NewBestBlockListener() {
@@ -138,6 +139,7 @@ public class BuildCheckpoints {
                 int height = block.getHeight();
                 System.out.println("block height: "+block.getHeight());
                 if (height % CoinDefinition.getIntervalCheckpoints() == 0 && block.getHeader().getTimeSeconds() <= timeAgo) {
+                //if(height == 201500){
                     System.out.println(String.format("Checkpointing block %s at height %d, time %s",
                             block.getHeader().getHash(), block.getHeight(), Utils.dateTimeFormat(block.getHeader().getTime())));
                     checkpoints.put(height, block);

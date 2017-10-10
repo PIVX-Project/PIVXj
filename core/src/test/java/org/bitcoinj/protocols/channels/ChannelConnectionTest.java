@@ -68,6 +68,12 @@ public class ChannelConnectionTest extends TestWithWallet {
             fail();
             return null;
         }
+
+        @Override
+        public TransactionBroadcast broadcastTransaction(Transaction tx, boolean isSwiftX) {
+            fail();
+            return null;
+        }
     };
 
     /**
@@ -126,6 +132,11 @@ public class ChannelConnectionTest extends TestWithWallet {
                 future.set(tx);
                 broadcasts.add(tx);
                 return TransactionBroadcast.createMockBroadcast(tx, future);
+            }
+
+            @Override
+            public TransactionBroadcast broadcastTransaction(Transaction tx, boolean isSwiftX) {
+                throw new IllegalStateException("method not implemented");
             }
         };
 

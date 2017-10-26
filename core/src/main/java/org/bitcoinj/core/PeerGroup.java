@@ -1687,6 +1687,18 @@ public class PeerGroup implements TransactionBroadcaster {
                     for (Peer peer : getConnectedPeers()) {
                         if (peer.getPeerVersionMessage().clientVersion < params.getProtocolVersionNum(NetworkParameters.ProtocolVersion.PONG))
                             continue;
+
+                        try {
+                            // todo: here i have to implement the GetBlock
+                            //System.out.println("Peer pings sent: " + peer.getSentPingNumber());
+                            //if (peer.getSentPingNumber() > 5) {
+                            //    if (peer.isDownloadData()) {
+                            //        peer.startBlockChainDownload();
+                            //    }
+                            //}
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
                         peer.ping();
                     }
                 } catch (Throwable e) {

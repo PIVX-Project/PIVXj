@@ -63,8 +63,6 @@ public class Block extends Message {
     public static final int HEADER_SIZE = 80;
     /*** Zerocoin blocks header size */
     public static final int ZEROCOIN_HEADER_SIZE = 112;
-    /** Zerocoin starting block height */
-    public static final long ZEROCOIN_STARTING_BLOCK_HEIGHT = 201564;
 
     static final long ALLOWED_TIME_DRIFT = 2 * 60 * 60; // Same value as Bitcoin Core.
 
@@ -72,9 +70,9 @@ public class Block extends Message {
      * Zerocoin block version
      * Includes an accumulator on the block.
      */
-    public static final int ZEROCOIN_BLOCK_VERSION = 4;
+    public static final long ZEROCOIN_BLOCK_VERSION = 4;
 
-    public static final boolean ACTIVATE_ZEROCOIN = false;
+    public static final boolean ACTIVATE_ZEROCOIN = true;
 
     /**
      * A constant shared by the entire network: how large in bytes a block is allowed to be. One day we may have to
@@ -122,7 +120,6 @@ public class Block extends Message {
 
     /**
      * Zerocoin accumulator
-     *
      */
     private Sha256Hash zeroCoinAccumulator;
 
@@ -284,28 +281,50 @@ public class Block extends Message {
 
     @Override
     protected void parse() throws ProtocolException {
-        // header
-        cursor = offset;
-        version = readUint32();
-        prevBlockHash = readHash();
-        merkleRoot = readHash();
-        time = readUint32();
-        difficultyTarget = readUint32();
-        nonce = readUint32();
-        int headerSize = getHeaderSize();
-        if (isZerocoin()){
-            // accumulator
-            zeroCoinAccumulator = readHash();
-            hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
-        }else {
-            hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
+        try {
+            // header
+            cursor = offset;
+            version = readUint32();
+            //System.out.println("parse version: "+version);
+            prevBlockHash = readHash();
+            //System.out.println("parse prevBlockHash: "+prevBlockHash);
+            merkleRoot = readHash();
+            //System.out.println("parse merkleRoot: "+merkleRoot);
+            time = readUint32();
+            //System.out.println("parse time: "+time);
+            difficultyTarget = readUint32();
+            //System.out.println("parse difficultyTarget: "+difficultyTarget);
+            nonce = readUint32();
+            //System.out.println("parse nonce: "+nonce);
+            int headerSize = getHeaderSize();
+            if (isZerocoin()) {
+                // accumulator
+                zeroCoinAccumulator = readHash(true);
+                //System.out.println("parse zeroCoinAccumulator: "+zeroCoinAccumulator);
+                //System.out.println("offset: "+offset);
+                //System.out.println("cursor: "+cursor);
+                //System.out.println("payload size: "+payload.length);
+                //System.out.println("Hash payload "+Arrays.toString(copy));
+               // hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(copy));
+               // System.out.println("zerocoin hash parsed: "+hash.toString());
+                hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
+                //System.out.println("zerocoin test hash parsed 2: "+hash.toString());
+
+                //hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
+            } else {
+                hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
+                //System.out.println("hash parsed: "+hash.toString());
+            }
+
+            headerBytesValid = serializer.isParseRetainMode();
+
+            // transactions
+            parseTransactions(offset + headerSize);
+            length = cursor - offset;
+        }catch (Exception e){
+            e.printStackTrace();
+            throw new RuntimeException(e);
         }
-
-        headerBytesValid = serializer.isParseRetainMode();
-
-        // transactions
-        parseTransactions(offset + headerSize);
-        length = cursor - offset;
     }
     
     public int getOptimalEncodingMessageSize() {
@@ -318,6 +337,7 @@ public class Block extends Message {
     // default for testing
     void writeHeader(OutputStream stream) throws IOException {
         int headerSize = getHeaderSize();
+        //System.out.println("writeHeader header size: "+headerSize);
         // try for cached write first
         if (headerBytesValid && payload != null && payload.length >= offset + headerSize) {
             stream.write(payload, offset, headerSize);
@@ -325,17 +345,21 @@ public class Block extends Message {
         }
         // fall back to manual write
         Utils.uint32ToByteStreamLE(version, stream);
+        //System.out.println("writeHeader version: "+version);
         stream.write(prevBlockHash.getReversedBytes());
+        //System.out.println("writeHeader prevBlockHash: "+prevBlockHash);
         stream.write(getMerkleRoot().getReversedBytes());
+        //System.out.println("writeHeader merkle root: "+getMerkleRoot());
         Utils.uint32ToByteStreamLE(time, stream);
+        //System.out.println("writeHeader time: "+time);
         Utils.uint32ToByteStreamLE(difficultyTarget, stream);
+        //System.out.println("writeHeader difficultyTarget: "+difficultyTarget);
         Utils.uint32ToByteStreamLE(nonce, stream);
+        //System.out.println("writeHeader nonce: "+nonce);
         if (isZerocoin()){
-            if (zeroCoinAccumulator!=null) {
-                stream.write(zeroCoinAccumulator.getReversedBytes());
-            }else {
-                stream.write(new byte[32]);
-            }
+            byte[] accumulator = (zeroCoinAccumulator!=null)?zeroCoinAccumulator.getReversedBytes():new byte[32];
+            stream.write(accumulator);
+            //System.out.println("writeHeader zeroCoinAccumulator: "+nonce);
         }
     }
 
@@ -482,6 +506,10 @@ public class Block extends Message {
     }
 
 
+    public Sha256Hash getAccumulator() {
+        return zeroCoinAccumulator;
+    }
+
     /**
      * Returns the hash of the block (which for a valid, solved block should be
      * below the target). Big endian.
@@ -502,18 +530,26 @@ public class Block extends Message {
         }
     }
 
-    public static boolean isZerocoinHeight(long height) {
+    public static boolean isZerocoinHeight(NetworkParameters networkParameters,long height) {
         if (!ACTIVATE_ZEROCOIN) {
             return false;
         }else
-            return height>=ZEROCOIN_STARTING_BLOCK_HEIGHT;
+            return height>=networkParameters.getZerocoinStartedHeight();
     }
 
-    public static int getHeaderSize(long height){
+    public static int getHeaderSizeByVersion(long version){
+        if (!ACTIVATE_ZEROCOIN) {
+            return Block.HEADER_SIZE;
+        }else {
+            return Block.ZEROCOIN_BLOCK_VERSION == version ? ZEROCOIN_HEADER_SIZE : HEADER_SIZE;
+        }
+    }
+
+    public static int getHeaderSize(NetworkParameters params,long height){
         if (!ACTIVATE_ZEROCOIN) {
             return Block.HEADER_SIZE;
         }else
-            return Block.isZerocoinHeight(height)?Block.ZEROCOIN_HEADER_SIZE:Block.HEADER_SIZE;
+            return Block.isZerocoinHeight(params,height)?Block.ZEROCOIN_HEADER_SIZE:Block.HEADER_SIZE;
     }
 
     /**
@@ -550,6 +586,7 @@ public class Block extends Message {
         block.version = version;
         block.time = time;
         block.difficultyTarget = difficultyTarget;
+        block.zeroCoinAccumulator = zeroCoinAccumulator;
         block.transactions = null;
         block.hash = getHash();
     }
@@ -574,6 +611,9 @@ public class Block extends Message {
         s.append("   time: ").append(time).append(" (").append(Utils.dateTimeFormat(time * 1000)).append(")\n");
         s.append("   difficulty target (nBits): ").append(difficultyTarget).append("\n");
         s.append("   nonce: ").append(nonce).append("\n");
+        if (isZerocoin()){
+            s.append("   accumulator: ").append((zeroCoinAccumulator!=null)?zeroCoinAccumulator.toString():0).append("\n");;
+        }
         if (transactions != null && transactions.size() > 0) {
             s.append("   with ").append(transactions.size()).append(" transaction(s):\n");
             for (Transaction tx : transactions) {

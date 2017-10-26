@@ -135,6 +135,7 @@ public class Peer extends PeerSocketHandler {
     private final HashSet<TransactionConfidence> pendingTxDownloads = new HashSet<TransactionConfidence>();
     // The lowest version number we're willing to accept. Lower than this will result in an immediate disconnect.
     private volatile int vMinProtocolVersion;
+
     // When an API user explicitly requests a block or transaction from a peer, the InventoryItem is put here
     // whilst waiting for the response. Is not used for downloads Peer generates itself.
     private static class GetDataRequest {
@@ -472,8 +473,6 @@ public class Peer extends PeerSocketHandler {
             }
         }
 
-        //System.out.println("process message: "+m.toString());
-
         // Allow event listeners to filter the message stream. Listeners are allowed to drop messages by
         // returning null.
         for (ListenerRegistration<PreMessageReceivedEventListener> registration : preMessageReceivedEventListeners) {
@@ -485,6 +484,8 @@ public class Peer extends PeerSocketHandler {
             }
         }
         if (m == null) return;
+
+        //System.out.println("process message: "+m.getClass());
 
         // If we are in the middle of receiving transactions as part of a filtered block push from the remote node,
         // and we receive something that's not a transaction, then we're done.
@@ -517,7 +518,9 @@ public class Peer extends PeerSocketHandler {
             startFilteredBlock((FilteredBlock) m);
         } else if (m instanceof TransactionLockRequest) {
             //processTransactionLockRequest((TransactionLockRequest) m);
-            context.instantSend.processTxLockRequest((TransactionLockRequest)m);
+            if (context.instantSend!=null) {
+                context.instantSend.processTxLockRequest((TransactionLockRequest) m);
+            }
             processTransaction((TransactionLockRequest)m);
 
         } else if (m instanceof Transaction) {
@@ -544,13 +547,16 @@ public class Peer extends PeerSocketHandler {
         } else if(m instanceof DarkSendQueue) {
             //do nothing
         } else if(m instanceof MasternodeBroadcast) {
-            if(!context.isLiteMode())
-                context.masternodeManager.processMasternodeBroadcast((MasternodeBroadcast)m);
-
+            if(!context.isLiteMode()) {
+                //todo: process master nodes messages
+                //context.masternodeManager.processMasternodeBroadcast((MasternodeBroadcast) m);
+            }
         }
         else if(m instanceof MasternodePing) {
-            if(!context.isLiteMode())
-                context.masternodeManager.processMasternodePing(this, (MasternodePing)m);
+            if(!context.isLiteMode()) {
+                //todo: process master nodes messages
+                //context.masternodeManager.processMasternodePing(this, (MasternodePing) m);
+            }
         }
         else if(m instanceof SporkMessage)
         {
@@ -565,8 +571,10 @@ public class Peer extends PeerSocketHandler {
         }
         else if(m instanceof SyncStatusCount) {
             // todo furszy: check pivx masternodes
-            if (context.masternodeSync!=null)
-                context.masternodeSync.processSyncStatusCount(this, (SyncStatusCount)m);
+            if (context.masternodeSync!=null) {
+                //todo: process master nodes messages
+                //context.masternodeSync.processSyncStatusCount(this, (SyncStatusCount) m);
+            }
         }
         else
         {
@@ -1150,6 +1158,7 @@ public class Peer extends PeerSocketHandler {
                     awaitingFreshFilter.add(m.getHash());
                     return;   // Chain download process is restarted via a call to setBloomFilter.
                 } else if (checkForFilterExhaustion(m)) {
+                    System.out.println("#### checkForFilterExhaustion true");
                     // Yes, so we must abandon the attempt to process this block and any further blocks we receive,
                     // then wait for the Bloom filter to be recalculated, sent to this peer and for the peer to acknowledge
                     // that the new filter is now in use (which we have to simulate with a ping/pong), and then we can
@@ -1517,6 +1526,11 @@ public class Peer extends PeerSocketHandler {
                                 getdata.addItem(item);
                             }
                             pendingBlockDownloads.add(item.hash);
+                            //System.out.println("pending blocks: "+Arrays.toString(pendingBlockDownloads.toArray()));
+                        }else {
+                            getdata.addFilteredBlock(item.hash);
+                            pingAfterGetData = true;
+                            //System.out.println("trying to continue syncing but the block is already on the pending blocks downloads list");
                         }
                     }
                 }
@@ -1531,8 +1545,11 @@ public class Peer extends PeerSocketHandler {
         }
 
         if (!getdata.getItems().isEmpty()) {
+            //System.out.println("sending getData for more blocks");
             // This will cause us to receive a bunch of block or tx messages.
             sendMessage(getdata);
+        }else {
+            //System.out.println("for some reason the getData items list is empty..");
         }
 
         if (pingAfterGetData)
@@ -1643,6 +1660,7 @@ public class Peer extends PeerSocketHandler {
 
     @GuardedBy("lock")
     private void blockChainDownloadLocked(Sha256Hash toHash) {
+        System.out.println("### blockChainDownloadLocked");
         checkState(lock.isHeldByCurrentThread());
         // The block chain download process is a bit complicated. Basically, we start with one or more blocks in a
         // chain that we have from a previous session. We want to catch up to the head of the chain BUT we don't know

@@ -459,10 +459,18 @@ public abstract class AbstractBlockChain {
             // article here for more details: https://bitcoinj.github.io/security-model
             try {
                 block.verifyHeader();
+                //System.out.println("New block previous hash: "+block.getPrevBlockHash());
                 storedPrev = getStoredBlockInCurrentScope(block.getPrevBlockHash());
+                if (storedPrev!=null) {
+                    //System.out.println("New block, previous stored block from db: " + storedPrev.getHeader().getHashAsString());
+                    checkArgument(block.getPrevBlockHash().equals(storedPrev.getHeader().getHash()), "Database saving shit.. prev hash block: " + block.getPrevBlockHash() + ", db prev hash: " + storedPrev.getHeader().getHashAsString());
+                }
+
                 if (storedPrev != null) {
                     height = storedPrev.getHeight() + 1;
+                    //System.out.println("Adding Block: "+height+" hash "+block.getHashAsString()+", Prev block "+storedPrev.getHeight()+" hash: "+block.getPrevBlockHash().toString());
                 } else {
+                    //System.out.println("block height unknown");
                     height = Block.BLOCK_HEIGHT_UNKNOWN;
                 }
                 flags = params.getBlockVerificationFlags(block, versionTally, height);
@@ -491,6 +499,7 @@ public abstract class AbstractBlockChain {
                 //todo furszy: i'm not checking the difficulty yet
                 //todo: this should be checked on a MN wallet service.
                 //checkDifficultyTransitions(storedPrev, block);
+                //System.out.println("going to connect block with accumulator: "+block.getAccumulator().toString());
                 connectBlock(block, storedPrev, shouldVerifyTransactions(), filteredTxHashList, filteredTxn);
             }
 
@@ -538,6 +547,9 @@ public abstract class AbstractBlockChain {
         }
         
         StoredBlock head = getChainHead();
+       // System.out.println("New block: "+block.toString());
+        //System.out.println("Head height: "+head.getHeight() + " hash: "+head.getHeader().getHashAsString()
+        //        + " Previous block stored height: "+storedPrev.getHeight());
         if (storedPrev.equals(head)) {
             if (filtered && filteredTxn.size() > 0)  {
                 log.debug("Block {} connects to top of best chain with {} transaction(s) of which we were sent {}",
@@ -571,6 +583,12 @@ public abstract class AbstractBlockChain {
             log.debug("Chain is now {} blocks high, running listeners", newStoredBlock.getHeight());
             informListenersForNewBlock(block, NewBlockType.BEST_CHAIN, filteredTxHashList, filteredTxn, newStoredBlock);
         } else {
+            //System.out.println("#####################");
+            //System.out.println("block not connect to the blockchain heads..");
+            //System.out.println("head chain: "+head.getHeader().getHashAsString());
+            //System.out.println("Stored block: "+storedPrev.getHeader().getHashAsString());
+            //System.out.println("New block work: "+block.getHashAsString());
+            //System.out.println("#####################");
             // This block connects to somewhere other than the top of the best known chain. We treat these differently.
             //
             // Note that we send the transactions to the wallet FIRST, even if we're about to re-organize this block
@@ -759,7 +777,7 @@ public abstract class AbstractBlockChain {
         log.info("New chain head: {}", newChainHead.getHeader().getHashAsString());
         log.info("Split at block: {}", splitPoint.getHeader().getHashAsString());
         // Then build a list of all blocks in the old part of the chain and the new part.
-        System.out.println("head work: "+head.getChainWork()+ ", splitPoint: "+splitPoint.getChainWork());
+        //System.out.println("head work: "+head.getChainWork()+ ", splitPoint: "+splitPoint.getChainWork());
         final LinkedList<StoredBlock> oldBlocks = getPartialChain(head, splitPoint, blockStore);
         final LinkedList<StoredBlock> newBlocks = getPartialChain(newChainHead, splitPoint, blockStore);
         // Disconnect each transaction in the previous main chain that is no longer in the new main chain

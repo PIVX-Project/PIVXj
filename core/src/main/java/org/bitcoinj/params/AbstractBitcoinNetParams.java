@@ -149,6 +149,6 @@ public abstract class AbstractBitcoinNetParams extends NetworkParameters {
 
     @Override
     public boolean hasMaxMoney() {
-        return true;
+        return false;
     }
 }

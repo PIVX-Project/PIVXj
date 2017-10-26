@@ -56,6 +56,9 @@ public abstract class PeerSocketHandler extends AbstractTimeoutHandler implement
     private int largeReadBufferPos;
     private BitcoinSerializer.BitcoinPacketHeader header;
 
+    protected volatile int numContinuosPing = 0;
+    private Class<? extends Message> lastClassType;
+
     private Lock lock = Threading.lock("PeerSocketHandler");
 
     public PeerSocketHandler(NetworkParameters params, InetSocketAddress remoteIp) {
@@ -84,7 +87,19 @@ public abstract class PeerSocketHandler extends AbstractTimeoutHandler implement
             lock.unlock();
         }
         // TODO: Some round-tripping could be avoided here
-        //System.out.println("Sending msg: "+message.toString());
+        if (lastClassType==null){
+            lastClassType = message.getClass();
+        }
+
+        if (message instanceof Ping && lastClassType == Ping.class){
+            numContinuosPing++;
+        }else {
+            numContinuosPing = 0;
+        }
+
+        lastClassType = message.getClass();
+
+        //System.out.println("Sending msg: "+message.getClass().getCanonicalName());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             serializer.serialize(message, out);
@@ -92,6 +107,10 @@ public abstract class PeerSocketHandler extends AbstractTimeoutHandler implement
         } catch (IOException e) {
             exceptionCaught(e);
         }
+    }
+
+    public int getSentPingNumber() {
+        return numContinuosPing;
     }
 
     /**

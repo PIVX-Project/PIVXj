@@ -58,15 +58,12 @@ public class MainNetParams extends AbstractBitcoinNetParams {
         spendableCoinbaseDepth = CoinDefinition.spendableCoinbaseDepth;
         String genesisHash = genesisBlock.getHashAsString();
 
-        System.out.println("genesis: "+genesisHash);
-        System.out.println("genesis: "+CoinDefinition.genesisHash);
-
-        System.out.println("genesis merkle: "+genesisBlock.getMerkleRoot().toString());
-
         checkState(genesisHash.equals(CoinDefinition.genesisHash),
                 genesisHash);
 
         CoinDefinition.initCheckpoints(checkpoints);
+
+        zerocoinStartedHeight = CoinDefinition.MAINNET_ZEROCOIN_STARTING_BLOCK_HEIGHT;
 
         dnsSeeds = CoinDefinition.dnsSeeds;
 

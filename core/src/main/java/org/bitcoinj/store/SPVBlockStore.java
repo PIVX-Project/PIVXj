@@ -151,7 +151,7 @@ public class SPVBlockStore implements BlockStore {
 
     /** Returns the size in bytes of the file that is used to store the chain with the current parameters. */
     public final int getFileSize() {
-        return RECORD_SIZE * numHeaders + FILE_PROLOGUE_BYTES /* extra kilobyte for stuff */;
+        return RECORD_SIZE_ZEROCOIN * numHeaders + FILE_PROLOGUE_BYTES /* extra kilobyte for stuff */;
     }
 
     @Override
@@ -176,9 +176,7 @@ public class SPVBlockStore implements BlockStore {
         } finally { lock.unlock(); }
     }
 
-    @Override
-    @Nullable
-    public StoredBlock get(Sha256Hash hash) throws BlockStoreException {
+    public StoredBlock get(Sha256Hash hash,boolean isChainHead) throws BlockStoreException {
         final MappedByteBuffer buffer = this.buffer;
         if (buffer == null) throw new BlockStoreException("Store closed");
 
@@ -197,11 +195,21 @@ public class SPVBlockStore implements BlockStore {
             final int fileSize = getFileSize();
             final byte[] targetHashBytes = hash.getBytes();
             byte[] scratch = new byte[32];
+            if (!isChainHead && lastChainHead == null){
+                getChainHead();
+            }
+            int recordSize = Block.isZerocoinHeight(
+                    params,
+                    lastChainHead!=null ? lastChainHead.getHeight() : 0)
+                    ?
+                    RECORD_SIZE_ZEROCOIN
+                    :
+                    RECORD_SIZE;
             do {
-                cursor -= RECORD_SIZE;
+                cursor -=  recordSize;//RECORD_SIZE;
                 if (cursor < FILE_PROLOGUE_BYTES) {
                     // We hit the start, so wrap around.
-                    cursor = fileSize - RECORD_SIZE;
+                    cursor = fileSize - recordSize;//RECORD_SIZE;
                 }
                 // Cursor is now at the start of the next record to check, so read the hash and compare it.
                 buffer.position(cursor);
@@ -221,6 +229,12 @@ public class SPVBlockStore implements BlockStore {
         } finally { lock.unlock(); }
     }
 
+    @Override
+    @Nullable
+    public StoredBlock get(Sha256Hash hash) throws BlockStoreException {
+        return get(hash,false);
+    }
+
     protected StoredBlock lastChainHead = null;
 
     @Override
@@ -235,7 +249,7 @@ public class SPVBlockStore implements BlockStore {
                 buffer.position(8);
                 buffer.get(headHash);
                 Sha256Hash hash = Sha256Hash.wrap(headHash);
-                StoredBlock block = get(hash);
+                StoredBlock block = get(hash,true);
                 if (block == null)
                     throw new BlockStoreException("Corrupted block store: could not find chain head: " + hash);
                 lastChainHead = block;
@@ -279,6 +293,7 @@ public class SPVBlockStore implements BlockStore {
     }
 
     protected static final int RECORD_SIZE = 32 /* hash */ + StoredBlock.COMPACT_SERIALIZED_SIZE;
+    protected static final int RECORD_SIZE_ZEROCOIN = 32 /* hash */ + StoredBlock.COMPACT_SERIALIZED_SIZE_ZEROCOIN;
 
     // File format:
     //   4 header bytes = "SPVB"

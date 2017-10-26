@@ -2929,6 +2929,7 @@ public class Wallet extends BaseTaggableObject
         switch (pool) {
         case UNSPENT:
             //case INSTANTX_LOCKED:
+            if (unspent.containsKey(tx.getHash())) System.out.println("Unspent pool contains: "+tx.getHashAsString());
             checkState(unspent.put(tx.getHash(), tx) == null);
             break;
         case SPENT:

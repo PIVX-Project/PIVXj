@@ -18,7 +18,6 @@
 package org.bitcoinj.params;
 
 import org.bitcoinj.core.CoinDefinition;
-import static org.bitcoinj.core.Utils.HEX;
 
 import java.math.BigInteger;
 import java.util.Date;
@@ -26,7 +25,6 @@ import java.util.Date;
 import org.bitcoinj.core.Block;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.StoredBlock;
-import org.bitcoinj.core.Utils;
 import org.bitcoinj.core.VerificationException;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
@@ -65,6 +63,8 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
             checkState(genesisHash.equals(CoinDefinition.testnetGenesisHash));
         //todo: add alert signing key..
         //alertSigningKey = HEX.decode(CoinDefinition.TESTNET_SATOSHI_KEY);
+
+        zerocoinStartedHeight = CoinDefinition.TESTNET_ZEROCOIN_STARTING_BLOCK_HEIGHT;
 
         dnsSeeds = CoinDefinition.testnetDnsSeeds;
 

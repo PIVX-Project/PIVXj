@@ -86,6 +86,8 @@ public abstract class NetworkParameters {
     protected int bip32HeaderPub;
     protected int bip32HeaderPriv;
 
+    protected long zerocoinStartedHeight;
+
     /** Used to check majorities for block version upgrade */
     protected int majorityEnforceBlockUpgrade;
     protected int majorityRejectBlockOutdated;
@@ -469,6 +471,14 @@ public abstract class NetworkParameters {
             }
         }
         return defaultSerializer;
+    }
+
+    /**
+     * Zerocoin started height in blockchain
+     * @return
+     */
+    public long getZerocoinStartedHeight() {
+        return zerocoinStartedHeight;
     }
 
     /**

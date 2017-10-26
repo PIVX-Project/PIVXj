@@ -21,6 +21,7 @@ import org.iq80.leveldb.*;
 import javax.annotation.*;
 import java.io.*;
 import java.nio.*;
+import java.util.Arrays;
 
 /**
  * An SPV block store that writes every header it sees to a <a href="https://github.com/fusesource/leveldbjni">LevelDB</a>.
@@ -77,11 +78,25 @@ public class LevelDBBlockStore implements BlockStore {
 
     @Override
     public synchronized void put(StoredBlock block) throws BlockStoreException {
+        //System.out.println("### trying to save something..");
         ByteBuffer buffer;
         buffer = block.getHeader().isZerocoin()? zerocoinBuffer:this.buffer;
         buffer.clear();
+        //System.out.println("Block information: "+block.toString());
         block.serializeCompact(buffer);
-        db.put(block.getHeader().getHash().getBytes(), buffer.array());
+        Sha256Hash blockHash = block.getHeader().getHash();
+        //System.out.println("### block hash to save: "+blockHash.toString());
+        byte[] hash = blockHash.getBytes();
+        byte[] dbBuffer = buffer.array();
+        db.put(hash, dbBuffer);
+        // just for now to check something:
+        StoredBlock dbBlock = get(Sha256Hash.wrap(hash));
+
+        byte[] bufferTwo = db.get(hash);
+
+        assert Arrays.equals(dbBuffer,bufferTwo):"database is shit..";
+
+        assert Arrays.equals(dbBlock.getHeader().getHash().getBytes(),hash): "put is different than get in db.. "+block.getHeader().getHashAsString()+", db: "+dbBlock.getHeader().getHashAsString();
     }
 
     @Override @Nullable

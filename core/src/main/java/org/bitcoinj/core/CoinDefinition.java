@@ -77,10 +77,10 @@ public class CoinDefinition {
     public static final boolean feeCanBeRaised = false;
 
     //
-    // Dash 0.12
+    // PIVX 0.12
     //
     public static final int PROTOCOL_VERSION = 70910;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70810;        //version.h MIN_PROTO_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70910;        //version.h MIN_PROTO_VERSION
 
     public static final int BLOCK_CURRENTVERSION = 2;   //CBlock::CURRENT_VERSION
     public static final int MAX_BLOCK_SIZE = 1 * 1000 * 1000;
@@ -90,6 +90,10 @@ public class CoinDefinition {
 
     public static final int Port    = 51472;       //protocol.h GetDefaultPort(testnet=false)
     public static final int TestPort = 51474;     //protocol.h GetDefaultPort(testnet=true)
+
+    /** Zerocoin starting block height */
+    public static final long TESTNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 201564;
+    public static final long MAINNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 863787;
 
     //
     //  Production

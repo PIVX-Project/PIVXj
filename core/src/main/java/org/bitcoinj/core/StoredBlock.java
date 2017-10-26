@@ -22,7 +22,9 @@ import com.google.common.base.Objects;
 
 import java.math.BigInteger;
 import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Locale;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -130,10 +132,13 @@ public class StoredBlock {
             buffer.put(EMPTY_BYTES, 0, CHAIN_WORK_BYTES - chainWorkBytes.length);
         }
         buffer.put(chainWorkBytes);
-        buffer.putInt(getHeight());
+        int height = getHeight();
+        //System.out.println("height: "+height);
+        buffer.putInt(height);
         // Using unsafeBitcoinSerialize here can give us direct access to the same bytes we read off the wire,
         // avoiding serialization round-trips.
         byte[] bytes = getHeader().unsafeBitcoinSerialize();
+        //System.out.println("serialize header compact: "+Arrays.toString(bytes));
         try {
             buffer.put(bytes, 0, header.getHeaderSize());  // Trim the trailing 00 byte (zero transactions).
         }catch (BufferOverflowException e){
@@ -144,14 +149,21 @@ public class StoredBlock {
 
     /** De-serializes the stored block from a custom packed format. Used by {@link CheckpointManager}. */
     public static StoredBlock deserializeCompact(NetworkParameters params, ByteBuffer buffer) throws ProtocolException {
-        byte[] chainWorkBytes = new byte[StoredBlock.CHAIN_WORK_BYTES];
-        buffer.get(chainWorkBytes);
-        BigInteger chainWork = new BigInteger(1, chainWorkBytes);
-        int height = buffer.getInt();  // +4 bytes
-        int headerSize = Block.getHeaderSize(height);
-        byte[] header = new byte[headerSize + 1];    // Extra byte for the 00 transactions length.
-        buffer.get(header, 0, headerSize);
-        return new StoredBlock(params.getDefaultSerializer().makeBlock(header), chainWork, height);
+        try {
+            byte[] chainWorkBytes = new byte[StoredBlock.CHAIN_WORK_BYTES];
+            buffer.get(chainWorkBytes);
+            BigInteger chainWork = new BigInteger(1, chainWorkBytes);
+            int height = buffer.getInt();  // +4 bytes
+            //System.out.println("deserializeCompact height: "+height);
+            int headerSize = Block.getHeaderSize(params, height);
+            byte[] header = new byte[headerSize + 1];    // Extra byte for the 00 transactions length.
+            buffer.get(header, 0, headerSize);
+            //System.out.println("deserializeCompact header: "+Arrays.toString(buffer.array()));
+            return new StoredBlock(params.getDefaultSerializer().makeBlock(header), chainWork, height);
+        }catch (BufferUnderflowException e){
+
+            throw e;
+        }
     }
 
     @Override

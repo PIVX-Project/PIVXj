@@ -18,6 +18,8 @@
 package org.bitcoinj.core;
 
 import com.google.common.base.Objects;
+import org.spongycastle.util.encoders.Hex;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
@@ -59,13 +61,15 @@ public class FilteredBlock extends Message {
 
     @Override
     protected void parse() throws ProtocolException {
-        byte[] headerBytes = new byte[Block.HEADER_SIZE];
-        System.arraycopy(payload, 0, headerBytes, 0, Block.HEADER_SIZE);
+        long version = Utils.readUint32(payload, 0);
+        int headerSize = Block.getHeaderSizeByVersion(version);
+        byte[] headerBytes = new byte[headerSize];
+        System.arraycopy(payload, 0, headerBytes, 0, headerSize);
         header = params.getDefaultSerializer().makeBlock(headerBytes);
         
-        merkleTree = new PartialMerkleTree(params, payload, Block.HEADER_SIZE);
+        merkleTree = new PartialMerkleTree(params, payload, headerSize);
         
-        length = Block.HEADER_SIZE + merkleTree.getMessageSize();
+        length = headerSize + merkleTree.getMessageSize();
     }
     
     /**

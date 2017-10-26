@@ -7,6 +7,8 @@ import com.google.common.collect.Lists;
 import org.bitcoinj.core.listeners.*;
 import org.bitcoinj.crypto.ChildNumber;
 import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.crypto.MnemonicCode;
+import org.bitcoinj.crypto.MnemonicException;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.net.discovery.PeerDiscovery;
 import org.bitcoinj.net.discovery.PeerDiscoveryException;
@@ -16,19 +18,25 @@ import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
+import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.LevelDBBlockStore;
 import org.bitcoinj.store.SPVBlockStore;
+import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.wallet.*;
 import org.bitcoinj.wallet.listeners.WalletChangeEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.junit.Test;
 import org.spongycastle.util.encoders.Hex;
+import sun.applet.Main;
 
 import javax.annotation.Nullable;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -147,11 +155,11 @@ public class MatiTest {
         }
     }
 
-    @Test
-    public void restoreFromBackup() throws IOException {
+
+    public Wallet restore(NetworkParameters networkParameters) throws IOException {
         String filename = "1.01_pivx-wallet-backup_org.pivx.production-2017-07-26 (2)";
         String password = "12345678";
-        NetworkParameters networkParameters = MainNetParams.get();
+
 
         File file = new File(filename);
         final BufferedReader cipherIn = new BufferedReader(new InputStreamReader(new FileInputStream(file), Charsets.UTF_8));
@@ -163,6 +171,14 @@ public class MatiTest {
         final InputStream is = new ByteArrayInputStream(plainText);
 
         Wallet wallet = restoreWalletFromProtobufOrBase58(is, networkParameters, 10000000);
+        return wallet;
+    }
+
+    @Test
+    public void restoreFromBackup() throws IOException {
+        NetworkParameters networkParameters = MainNetParams.get();
+
+        Wallet wallet = restore(networkParameters);
 
         String seed = wallet.getKeyChainSeed().toHexString();
         String watchingKey = wallet.getWatchingKey().serializePubB58(networkParameters);
@@ -251,19 +267,75 @@ public class MatiTest {
     }
 
     @Test
-    public void connect() throws BlockStoreException, IOException, InsufficientMoneyException {
+    public void test() throws BlockStoreException {
         NetworkParameters networkParameters = TestNet3Params.get();
+        Context context = Context.getOrCreate(networkParameters);
+        String hexBlock = "04000000582c73cb7d33b1a2b2269d6b00ca1f6cfa32a36bcdf7c7f85e3a3da30ed421c51ed3c5a492ad97faf6d12b806a089c26215c08bdbaa599daad45dc1908b0d4d5af4c83597093001b0000000075ff318975ff3189f97be5115f5976571afd276fa0c37215605ddbd61d37e2f40201000000010000000000000000000000000000000000000000000000000000000000000000ffffffff06037613030101ffffffff010000000000000000000000000001000000017a35864e454019b1192a5b7a58355edeb264923bcb8461313c677387258ecc67010000004847304402206a3c6a655e858d74b566885e72f7b7f91258f16c944b4f6c74df10f3fc0ec7860220350426a3b1318958402756b483ee703c590b034d61841a79eb56e59244550f8b01ffffffff04000000000000000000409277e45d000000232102af62f4bc029ec391b71074dd222c771f0ad17b38256c901af13adb0075cd8d74ac78f089005d000000232102af62f4bc029ec391b71074dd222c771f0ad17b38256c901af13adb0075cd8d74ac40defce3000000001976a9142f28328985dfa52fa9213a6ead9c2583e2f7251588ac00000000473045022100e077082775a52855eaa6e11464b38993e1be0096d41fbff0497187d60a07b007022070300f34df7cd43e1cfb895c5179a281c9505396c8c769857ad8f3783efd4201";
+        byte[] payload = Hex.decode(hexBlock);
+
+
+        BitcoinSerializer serializer = new BitcoinSerializer(networkParameters,true);
+        Block block = serializer.makeBlock(payload);
+
+        System.out.println(block);
+
+
+        LevelDBBlockStore levelDBBlockStore = new LevelDBBlockStore(context,new File("blockstore.dat"));
+
+        //StoredBlock storedBlock0 = new StoredBlock(block,block.getWork(),201590);
+
+        //levelDBBlockStore.put(storedBlock0);
+
+        StoredBlock storedBlock = levelDBBlockStore.get(block.getHash());
+
+        System.out.println("##############");
+        System.out.println(storedBlock);
+
+    }
+
+    /**
+     * Minimum entropy
+     */
+    private static final int SEED_ENTROPY_EXTRA = 256;
+    private static final int ENTROPY_SIZE_DEBUG = -1;
+
+    public static List<String> generateMnemonic(int entropyBitsSize){
+        byte[] entropy;
+        if (ENTROPY_SIZE_DEBUG > 0){
+            entropy = new byte[ENTROPY_SIZE_DEBUG];
+        }else {
+            entropy = new byte[entropyBitsSize / 8];
+        }
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextBytes(entropy);
+        return bytesToMnemonic(entropy);
+    }
+
+    public static List<String> bytesToMnemonic(byte[] bytes){
+        List<String> mnemonic;
+        try{
+            mnemonic = MnemonicCode.INSTANCE.toMnemonic(bytes);
+        } catch (MnemonicException.MnemonicLengthException e) {
+            throw new RuntimeException(e); // should not happen, we have 16 bytes of entropy
+        }
+        return mnemonic;
+    }
+
+
+    @Test
+    public void connect() throws BlockStoreException, IOException, InsufficientMoneyException {
+
+        BriefLogFormatter.init();
+
+        NetworkParameters networkParameters = MainNetParams.get();
         Context context = new Context(networkParameters);
-        context.initPivx(false,true);
-        //context.initPivx(false, true);
         //File dir = new File("dir");
         //dir.mkdir();
-        //context.initDashSync(dir.getAbsolutePath());
-        File walletFile = new File("wallet.dat");
+        File walletFile = new File("wallet2.dat");
         Wallet wallet;
         if (!walletFile.exists()){
             walletFile.createNewFile();
-            wallet = new Wallet(networkParameters);
+            wallet = restore(networkParameters);
         }else {
             try {
                 wallet = Wallet.loadFromFile(walletFile);
@@ -272,7 +344,8 @@ public class MatiTest {
                 throw new RuntimeException();
             }
         }
-        wallet.autosaveToFile(walletFile, 5, TimeUnit.SECONDS, new WalletFiles.Listener() {
+        wallet.saveToFile(walletFile);
+        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
             @Override
             public void onBeforeAutoSave(File tempFile) {
 
@@ -283,7 +356,7 @@ public class MatiTest {
 
             }
         });
-        LevelDBBlockStore spvBlockStore = new LevelDBBlockStore(context,new File("blockstore.dat"));
+        BlockStore spvBlockStore = new LevelDBBlockStore(context,new File("blockstore.dat")); //new LevelDBBlockStore(context,new File("blockstore.dat"));
         //InputStream inputStream = new FileInputStream(new File("checkpoints"));
         //CheckpointManager.checkpoint(networkParameters, inputStream, spvBlockStore, System.currentTimeMillis());
         final BlockChain blockChain = new BlockChain(context,wallet,spvBlockStore);
@@ -291,8 +364,12 @@ public class MatiTest {
         peerGroup.addPeerDiscovery(new PeerDiscovery() {
             @Override
             public InetSocketAddress[] getPeers(long services, long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
-                System.out.println("discovery peer");
-                return new InetSocketAddress[]{new InetSocketAddress("localhost",51474)};
+                return new InetSocketAddress[]{
+                        //new InetSocketAddress("202.5.21.31",51474),
+                        new InetSocketAddress("localhost",51474)
+                        //new InetSocketAddress("localhost",51474)
+                        //new InetSocketAddress("88.198.192.110",51474)
+                };
             }
 
             @Override
@@ -300,12 +377,15 @@ public class MatiTest {
 
             }
         });
+        peerGroup.setDownloadTxDependencies(0);
+        peerGroup.addWallet(wallet);
         peerGroup.addBlocksDownloadedEventListener(new BlocksDownloadedEventListener() {
             @Override
             public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
                 System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
             }
         });
+        peerGroup.setMaxPeersToDiscoverCount(1);
         peerGroup.startBlockChainDownload(new AbstractPeerDataEventListener(){
             @Override
             public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {

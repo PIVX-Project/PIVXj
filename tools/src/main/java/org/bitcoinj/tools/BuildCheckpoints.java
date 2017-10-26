@@ -31,6 +31,7 @@ import com.google.common.io.Resources;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import org.spongycastle.util.test.Test;
 import sun.applet.Main;
 
 import java.io.DataOutputStream;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.security.DigestOutputStream;
@@ -95,7 +97,7 @@ public class BuildCheckpoints {
 
         //params = TestNet3Params.get();
         //suffix = "-testnet";
-        params = MainNetParams.get();
+        params = TestNet3Params.get();
         suffix = "";
 
 
@@ -108,9 +110,9 @@ public class BuildCheckpoints {
                 System.err.println("Could not understand peer domain name/IP address: " + peerFlag + ": " + e.getMessage());
                 System.exit(1);
                 return;
-            }
+            }InetAddress.getLocalHost();
         } else {
-            ipAddress =  InetAddress.getLocalHost(); //InetAddress.getByName("185.101.98.175");
+            ipAddress = InetAddress.getByName("202.5.21.31"); // InetAddress.getLocalHost();
         }
         final PeerAddress peerAddress = new PeerAddress(ipAddress, params.getPort());
 

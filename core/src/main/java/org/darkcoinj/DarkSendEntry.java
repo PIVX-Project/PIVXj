@@ -1,6 +1,6 @@
 package org.darkcoinj;
 
-import org.bitcoinj.core.*;
+import org.pivxj.core.*;
 
 import java.util.ArrayList;
 

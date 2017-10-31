@@ -1,7 +1,7 @@
 package org.darkcoinj;
 
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionInput;
+import org.pivxj.core.Transaction;
+import org.pivxj.core.TransactionInput;
 
 /**
  * Created by Eric on 2/8/2015.

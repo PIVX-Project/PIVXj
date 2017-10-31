@@ -1,6 +1,6 @@
 package org.darkcoinj;
 
-import org.bitcoinj.core.MasterNodePaymentWinner;
+import org.pivxj.core.MasterNodePaymentWinner;
 
 import java.util.ArrayList;
 

@@ -3,6 +3,7 @@ package org.pivxj.core;
 import com.google.common.base.Charsets;
 import org.pivxj.core.listeners.*;
 import org.pivxj.crypto.DeterministicKey;
+import org.pivxj.crypto.LazyECPoint;
 import org.pivxj.crypto.MnemonicCode;
 import org.pivxj.crypto.MnemonicException;
 import org.pivxj.net.discovery.PeerDiscovery;
@@ -19,6 +20,9 @@ import org.pivxj.store.LevelDBBlockStore;
 import org.pivxj.utils.BriefLogFormatter;
 import org.pivxj.wallet.*;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.event.Level;
+import org.spongycastle.crypto.params.ECPublicKeyParameters;
 import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
@@ -31,6 +35,9 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.SimpleFormatter;
 
 /**
  * Created by furszy on 6/23/17.
@@ -144,10 +151,22 @@ public class MatiTest {
         }
     }
 
+    @Test
+    public void publicKeyToAddress(){
+
+        NetworkParameters params = MainNetParams.get();
+        String pubKey = "0244c064ee0b6bd3763736ad3ba60bf1d5a9c72d26b57ee13f4658476d6c6e1bec";
+        DeterministicKey key = DeterministicKey.deserialize(params,Hex.decode(pubKey));
+        //Address address = Address.fromP2SHHash(params,);
+
+        System.out.printf("address: "+key.toAddress(params).toBase58());
+
+    }
 
     public Wallet restore(NetworkParameters networkParameters) throws IOException {
-        String filename = "1.01_pivx-wallet-backup_org.pivx.production-2017-07-26 (2)";
-        String password = "12345678";
+        String filename = "2.0.32_pivx-wallet-backup_org.pivx.production-2017-11-20";
+        //"1.01_pivx-wallet-backup_org.pivx.production-2017-07-26 (2)";
+        String password = "123";//"12345678";
 
 
         File file = new File(filename);
@@ -263,7 +282,7 @@ public class MatiTest {
         byte[] payload = Hex.decode(hexBlock);
 
 
-        BitcoinSerializer serializer = new BitcoinSerializer(networkParameters,true);
+        BitcoinSerializer serializer = new BitcoinSerializer(networkParameters,false);
         Block block = serializer.makeBlock(payload);
 
         System.out.println(block);
@@ -310,17 +329,69 @@ public class MatiTest {
         return mnemonic;
     }
 
+    @Test
+    public void zerocoinTransactionTest(){
+
+        NetworkParameters params = MainNetParams.get();
+        String zerocoinTxHex = "473044022018d79ecf0de1c1b6a6b2869d574c0c4f1517613e48bdd7661e632c48c0cecd4b02203c840273520b8cc15792202a288b964fc3b5986fceb87d8f39b7c82a73987c5b012102bbc42e2dcfe0aa8e9341254a6dd138915727dab4e1c89a3a196a161c2fbe49c6";
+        byte[] btes = Hex.decode(zerocoinTxHex);
+        byte[] hash = Hex.decode("b45e049f36e3f0f39f0b30f30f5f75a68632b92e4b4242769c78b82a55a24322");
+        BitcoinSerializer serializer = new BitcoinSerializer(params,false);
+        Transaction transaction = serializer.makeTransaction(btes,0,btes.length,hash);
+
+        System.out.println(transaction.toString());
+    }
 
     @Test
-    public void connect() throws BlockStoreException, IOException, InsufficientMoneyException {
+    public void testConversion(){
 
+        byte[] payload = Hex.decode("ffffff");
+        long res = Utils.readUint32(payload,0);
+        System.out.println("Res: "+res);
+    }
+
+    @Test
+    public void parseTxHexTest(){
+
+
+
+
+    }
+
+    @Test
+    public void getZerocoinSpendTx(){
         BriefLogFormatter.init();
 
-        NetworkParameters networkParameters = MainNetParams.get();
-        Context context = new Context(networkParameters);
-        //File dir = new File("dir");
-        //dir.mkdir();
-        File walletFile = new File("wallet2.dat");
+        final NetworkParameters params = MainNetParams.get();
+        Context.getOrCreate(params);
+
+
+        PeerGroup peerGroup = new PeerGroup(params);
+        peerGroup.addConnectedEventListener(new PeerConnectedEventListener() {
+            @Override
+            public void onPeerConnected(Peer peer, int peerCount) {
+                System.out.println("connected");
+                // request the tx
+                Sha256Hash txHash = Sha256Hash.wrap("50f7c828374f73649730740574422786f52d88450d9c39af09decaba24644922");
+                InventoryItem item = new InventoryItem(InventoryItem.Type.Transaction,txHash);
+
+                GetDataMessage getdata = new GetDataMessage(params);
+                getdata.addItem(item);
+                peer.sendMessage(getdata);
+            }
+        });
+        peerGroup.start();
+        Peer peer = peerGroup.connectToLocalHost();
+
+
+        while (true){
+
+        }
+
+    }
+
+
+    public Wallet createWallet(NetworkParameters networkParameters,File walletFile) throws IOException {
         Wallet wallet;
         if (!walletFile.exists()){
             walletFile.createNewFile();
@@ -332,6 +403,33 @@ public class MatiTest {
                 e.printStackTrace();
                 throw new RuntimeException();
             }
+        }
+        return wallet;
+    }
+
+    @Test
+    public void connect() throws BlockStoreException, IOException, InsufficientMoneyException {
+
+        BriefLogFormatter.init();
+
+        FileHandler fh = new FileHandler("MyLogFile.log");
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger("");
+        logger.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+
+        NetworkParameters networkParameters = MainNetParams.get();
+        Context context = new Context(networkParameters);
+        //File dir = new File("dir");
+        //dir.mkdir();
+        File walletFile = new File("wallet5.dat");
+        //Wallet wallet = createWallet(networkParameters,walletFile);
+        Wallet wallet = restore(networkParameters);
+        System.out.println("Wallet keys: "+Arrays.toString(wallet.getWatchedAddresses().toArray()));
+        List<ECKey> list = wallet.getActiveKeyChain().getIssuedReceiveKeys();
+        for (ECKey ecKey : list) {
+            System.out.println("Address: "+ecKey.toAddress(networkParameters));
+            wallet.addWatchedAddress(ecKey.toAddress(networkParameters));
         }
         wallet.saveToFile(walletFile);
         wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
@@ -371,14 +469,16 @@ public class MatiTest {
         peerGroup.addBlocksDownloadedEventListener(new BlocksDownloadedEventListener() {
             @Override
             public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
-                System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
+                //System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
             }
         });
         peerGroup.setMaxPeersToDiscoverCount(1);
         peerGroup.startBlockChainDownload(new AbstractPeerDataEventListener(){
             @Override
             public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
-                //System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
+                if ((blocksLeft/10000) == 0) {
+                    System.out.println("block left: " + blocksLeft + ", hash: " + block.getHash().toString());
+                }
             }
         });
         peerGroup.startAsync();
@@ -386,7 +486,7 @@ public class MatiTest {
 
         System.out.println(wallet.toString());
         System.out.println("blockchain height: "+blockChain.chainHead.getHeight());
-
+        System.out.println();
         while (true){
 
         }

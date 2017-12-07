@@ -563,14 +563,15 @@ public abstract class AbstractBlockChain {
             // NOTE: This requires 1,000 blocks since the last checkpoint (on main
             // net, less on test) in order to be applied. It is also limited to
             // stopping addition of new v2/3 blocks to the tip of the chain.
-            if (block.getVersion() == Block.BLOCK_VERSION_BIP34
-                || block.getVersion() == Block.BLOCK_VERSION_BIP66) {
-                final Integer count = versionTally.getCountAtOrAbove(block.getVersion() + 1);
-                if (count != null
-                    && count >= params.getMajorityRejectBlockOutdated()) {
-                    throw new VerificationException.BlockVersionOutOfDate(block.getVersion());
-                }
-            }
+            // TODO: check this.
+            //if (block.getVersion() == Block.BLOCK_VERSION_BIP34
+            //    || block.getVersion() == Block.BLOCK_VERSION_BIP66) {
+            //    final Integer count = versionTally.getCountAtOrAbove(block.getVersion() + 1);
+            //    if (count != null
+            //        && count >= params.getMajorityRejectBlockOutdated()) {
+            //        throw new VerificationException.BlockVersionOutOfDate(block.getVersion());
+            //    }
+            //}
 
             // This block connects to the best known block, it is a normal continuation of the system.
             TransactionOutputChanges txOutChanges = null;
@@ -596,7 +597,8 @@ public abstract class AbstractBlockChain {
             StoredBlock newBlock = storedPrev.build(block);
             boolean haveNewBestChain = newBlock.moreWorkThan(head);
             if (haveNewBestChain) {
-                log.info("Block is causing a re-organize, block height: "+newBlock.getHeight());
+                log.info("Block is causing a re-organize, block height: "+newBlock.getHeight()+", "
+                + " new block bits: "+newBlock.getChainWork()+" -> height: "+newBlock.getHeight()+", old block bits: "+storedPrev.getChainWork()+" -> height: "+storedPrev.getHeight());
             } else {
                 StoredBlock splitPoint = findSplit(newBlock, head, blockStore);
                 if (splitPoint != null && splitPoint.equals(newBlock)) {

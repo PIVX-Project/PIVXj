@@ -19,6 +19,7 @@ package org.pivxj.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.pivxj.core.Transaction.MAX_STANDARD_TX_SIZE;
 import static org.pivxj.core.Utils.*;
 
 /**
@@ -203,7 +205,7 @@ public class BitcoinSerializer extends MessageSerializer {
 
     private Message makeMessage(String command, int length, byte[] payloadBytes, byte[] hash, byte[] checksum) throws ProtocolException {
         // We use an if ladder rather than reflection because reflection is very slow on Android.
-        Message message;
+        Message message = null;
         if (command.equals("version")) {
             return new VersionMessage(params, payloadBytes);
         } else if (command.equals("inv")) { 
@@ -219,7 +221,15 @@ public class BitcoinSerializer extends MessageSerializer {
         } else if (command.equals("getheaders")) {
             message = new GetHeadersMessage(params, payloadBytes);
         } else if (command.equals("tx")) {
-            message = makeTransaction(payloadBytes, 0, length, hash);
+            try {
+                if (payloadBytes.length > MAX_STANDARD_TX_SIZE){
+                    log.warn("Receiving huge transaction.. , payload: "+payloadBytes.length);
+                    return null;
+                }
+                message = makeTransaction(payloadBytes, 0, length, hash);
+            }catch (ScriptException e){
+                log.error("make transaction, "+ Hex.toHexString(payloadBytes),e);
+            }
         } else if (command.equals("addr")) {
             message = makeAddressMessage(payloadBytes, length);
         } else if (command.equals("ping")) {

@@ -53,6 +53,7 @@ public class VarInt {
         } else {
             value = Utils.readInt64(buf, offset + 1);
             originallyEncodedSize = 9; // 1 marker + 8 data bytes (64 bits)
+            System.out.println("REading varInt 64 bits");
         }
     }
 

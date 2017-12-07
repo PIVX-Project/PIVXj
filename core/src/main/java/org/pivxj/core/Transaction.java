@@ -32,6 +32,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
 import java.io.*;
@@ -216,7 +217,6 @@ public class Transaction extends ChildMessage {
      * @param params NetworkParameters object.
      * @param payload Bitcoin protocol formatted byte array containing message content.
      * @param offset The location of the first payload byte within the array.
-     * @param parseRetain Whether to retain the backing byte array for quick reserialization.
      * If true and the backing byte array is invalidated due to modification of a field then
      * the cached bytes may be repopulated and retained if the message is serialized again in the future.
      * @param length The length of message if known.  Usually this is provided when deserializing of the wire
@@ -546,7 +546,7 @@ public class Transaction extends ChildMessage {
     @Override
     protected void parse() throws ProtocolException {
         cursor = offset;
-
+        System.out.println("Starting reading transaction cursor offset: "+cursor);
         version = readUint32();
         optimalEncodingMessageSize = 4;
 
@@ -750,8 +750,8 @@ public class Transaction extends ChildMessage {
 
     /**
      * Adds an input to this transaction that imports value from the given output. Note that this input is <i>not</i>
-     * complete and after every input is added with {@link #addInput()} and every output is added with
-     * {@link #addOutput()}, a {@link TransactionSigner} must be used to finalize the transaction and finish the inputs
+     * complete and after every input is added with {@link #addInput(TransactionOutput)} and every output is added with
+     * {@link #addOutput(TransactionOutput)}, a {@link TransactionSigner} must be used to finalize the transaction and finish the inputs
      * off. Otherwise it won't be accepted by the network.
      * @return the newly created input.
      */
@@ -1247,8 +1247,10 @@ public class Transaction extends ChildMessage {
         Coin valueOut = Coin.ZERO;
         HashSet<TransactionOutPoint> outpoints = new HashSet<TransactionOutPoint>();
         for (TransactionInput input : inputs) {
-            if (outpoints.contains(input.getOutpoint()))
+            if (outpoints.contains(input.getOutpoint())) {
+                log.error("Duplicated output in a transaction "+toString());
                 throw new VerificationException.DuplicatedOutPoint();
+            }
             outpoints.add(input.getOutpoint());
         }
         try {
@@ -1266,8 +1268,13 @@ public class Transaction extends ChildMessage {
         }
 
         if (isCoinBase()) {
-            if (inputs.get(0).getScriptBytes().length < 2 || inputs.get(0).getScriptBytes().length > 100)
+            byte[] scriptBytes = inputs.get(0).getScriptBytes();
+            if (scriptBytes.length < 2 || scriptBytes.length > 100) {
+                log.info("#### Invalid transaction, "+toString());
+                log.info("### invalid script: "+ Hex.toHexString(scriptBytes));
+                //log.info("#### Invalid transaction script, "+inputs.get(0).toString());
                 throw new VerificationException.CoinbaseScriptSizeOutOfRange();
+            }
         } else {
             for (TransactionInput input : inputs)
                 if (input.isCoinBase())

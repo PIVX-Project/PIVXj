@@ -651,8 +651,8 @@ public class MasternodeManager extends AbstractManager {
         Masternode mnExisting = find(vin);
         if(mnExisting == null)
             return -1;
-
-        Sha256Hash hash = context.hashStore.getBlockHash(nBlockHeight);
+        // todo: hashtore bad structred in the code.
+        Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);
         if(hash == null) {
             return -2; //we don't have the block in our store
         }
@@ -752,7 +752,8 @@ public class MasternodeManager extends AbstractManager {
             //make sure we know about this block
             //uint256 hash = uint256();
             //if(!GetBlockHash(hash, nBlockHeight)) return vecMasternodeRanks;
-            Sha256Hash hash = context.hashStore.getBlockHash(nBlockHeight);
+            // todo: hashstore bad structured in the code:
+            Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);
             if (hash == null)
                 return vecMasternodeRanks;
         lock.lock();

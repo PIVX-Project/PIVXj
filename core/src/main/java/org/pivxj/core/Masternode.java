@@ -392,7 +392,8 @@ public class Masternode extends Message{
         //    return Sha256Hash.ZERO_HASH;
 
         //uint256 hash = 0;
-        Sha256Hash hash = context.hashStore.getBlockHash(nBlockHeight);
+        // todo: hashstore bad structured in the code.
+        Sha256Hash hash = null;//context.hashStore.getBlockHash(nBlockHeight);
         if(hash.equals(Sha256Hash.ZERO_HASH))
         {
             log.info("CalculateScore ERROR - nHeight {} - Returned 0", nBlockHeight);

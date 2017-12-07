@@ -19,6 +19,7 @@ package org.pivxj.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -330,6 +331,7 @@ public abstract class Message {
 
     protected byte[] readBytes(int length) throws ProtocolException {
         if (length > MAX_SIZE) {
+            log.info("MAx size "+MAX_SIZE);
             throw new ProtocolException("Claimed value length too large: " + length);
         }
         try {

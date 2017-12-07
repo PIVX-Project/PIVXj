@@ -2933,7 +2933,9 @@ public class Wallet extends BaseTaggableObject
             checkState(unspent.put(tx.getHash(), tx) == null);
             break;
         case SPENT:
-            checkState(spent.put(tx.getHash(), tx) == null);
+            boolean b = spent.put(tx.getHash(), tx) == null;
+            log.error("### Transaction already on the SPENT pool.. "+tx.toString());
+            //checkState(spent.put(tx.getHash(), tx) == null);
             break;
         case PENDING:
         //case INSTANTX_PENDING:

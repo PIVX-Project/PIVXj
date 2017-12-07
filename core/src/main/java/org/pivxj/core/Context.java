@@ -22,6 +22,7 @@ import org.darkcoinj.DarkSendPool;
 import org.darkcoinj.InstantSend;
 import org.slf4j.*;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
@@ -67,7 +68,7 @@ public class Context {
     public ActiveMasternode activeMasternode;
     public DarkSendPool darkSendPool;
     public InstantSend instantSend;
-    public HashStore hashStore;
+    //public HashStore hashStore;
     public MasternodeDB masternodeDB;
 
     /**
@@ -241,12 +242,14 @@ public class Context {
         //darkSendPool.startBackgroundProcessing();
     }
 
-    public void setPeerGroupAndBlockChain(PeerGroup peerGroup, AbstractBlockChain chain)
+    public void setPeerGroupAndBlockChain(PeerGroup peerGroup, @Nullable AbstractBlockChain chain)
     {
         this.peerGroup = peerGroup;
         this.blockChain = chain;
-        hashStore = new HashStore(chain.getBlockStore());
-        chain.addListener(updateHeadListener);
+        if (chain!=null) {
+            //hashStore = new HashStore(chain.getBlockStore());
+            chain.addListener(updateHeadListener);
+        }
         //todo: furszy pivx init
         if (sporkManager!=null) {
             sporkManager.setBlockChain(chain);

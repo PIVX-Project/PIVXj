@@ -467,7 +467,7 @@ public class Peer extends PeerSocketHandler {
                 dataReceived += m.getMessageSize();
 
                 if (count % 50 == 0) {
-                    log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " + (current - startTime) / 1000 + " s:" + (dataReceived / 1024) / (current - startTime) * 1000 + " KB/s , msgType: " + m.toString());
+                    //log.info("[bandwidth] " + (dataReceived / 1024 / 1024) + " MiB in " + (current - startTime) / 1000 + " s:" + (dataReceived / 1024) / (current - startTime) * 1000 + " KB/s , msgType: " + m.toString());
                 }
                 count++;
             }
@@ -524,7 +524,11 @@ public class Peer extends PeerSocketHandler {
             processTransaction((TransactionLockRequest)m);
 
         } else if (m instanceof Transaction) {
-            processTransaction((Transaction) m);
+            try {
+                processTransaction((Transaction) m);
+            }catch (VerificationException.DuplicatedOutPoint e){
+                log.error("Duplicated output, could be a zcspend output..",e);
+            }
         } else if (m instanceof GetDataMessage) {
             processGetData((GetDataMessage) m);
         } else if (m instanceof AddressMessage) {
@@ -820,7 +824,12 @@ public class Peer extends PeerSocketHandler {
 
     protected void processTransaction(final Transaction tx) throws VerificationException {
         // Check a few basic syntax issues to ensure the received TX isn't nonsense.
-        tx.verify();
+        try {
+            tx.verify();
+        }catch (VerificationException.CoinbaseScriptSizeOutOfRange e){
+            log.error("CoinbaseScriptSizeOutOfRange, txId "+tx.getHashAsString(),e.getMessage());
+            return;
+        }
         lock.lock();
         try {
             log.debug("{}: Received tx {}", getAddress(), tx.getHashAsString());
@@ -901,9 +910,9 @@ public class Peer extends PeerSocketHandler {
                         } else {
                             wallet.receivePending(tx, null);
 
-                            if(tx instanceof TransactionLockRequest)
-                            {
-                                context.instantSend.acceptLockRequest((TransactionLockRequest)tx);
+                            if(tx instanceof TransactionLockRequest) {
+                                if (context.instantSend!=null)
+                                    context.instantSend.acceptLockRequest((TransactionLockRequest)tx);
                             }
                         }
                     }
@@ -1660,7 +1669,7 @@ public class Peer extends PeerSocketHandler {
 
     @GuardedBy("lock")
     private void blockChainDownloadLocked(Sha256Hash toHash) {
-        System.out.println("### blockChainDownloadLocked");
+        //System.out.println("### blockChainDownloadLocked");
         checkState(lock.isHeldByCurrentThread());
         // The block chain download process is a bit complicated. Basically, we start with one or more blocks in a
         // chain that we have from a previous session. We want to catch up to the head of the chain BUT we don't know

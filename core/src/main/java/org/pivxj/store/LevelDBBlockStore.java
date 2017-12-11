@@ -88,6 +88,7 @@ public class LevelDBBlockStore implements BlockStore {
         //System.out.println("### block hash to save: "+blockHash.toString());
         byte[] hash = blockHash.getBytes();
         byte[] dbBuffer = buffer.array();
+
         db.put(hash, dbBuffer);
         // just for now to check something:
         StoredBlock dbBlock = get(Sha256Hash.wrap(hash));
@@ -96,7 +97,9 @@ public class LevelDBBlockStore implements BlockStore {
 
         assert Arrays.equals(dbBuffer,bufferTwo):"database is shit..";
 
-        assert Arrays.equals(dbBlock.getHeader().getHash().getBytes(),hash): "put is different than get in db.. "+block.getHeader().getHashAsString()+", db: "+dbBlock.getHeader().getHashAsString();
+        if (!Arrays.equals(dbBlock.getHeader().getHash().getBytes(),hash)) {
+           assert false : "put is different than get in db.. " + block.getHeader().getHashAsString() + ", db: " + dbBlock.getHeader().getHashAsString();
+        }
     }
 
     @Override @Nullable

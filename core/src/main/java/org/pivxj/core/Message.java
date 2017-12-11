@@ -331,7 +331,7 @@ public abstract class Message {
 
     protected byte[] readBytes(int length) throws ProtocolException {
         if (length > MAX_SIZE) {
-            log.info("MAx size "+MAX_SIZE);
+            log.info("Max size "+MAX_SIZE);
             throw new ProtocolException("Claimed value length too large: " + length);
         }
         try {

@@ -296,7 +296,7 @@ public class Block extends Message {
             nonce = readUint32();
             //System.out.println("parse nonce: "+nonce);
             int headerSize = getHeaderSize();
-            if (isZerocoin()) {
+            if (isZerocoin() && length >= ZEROCOIN_HEADER_SIZE) {
                 // accumulator
                 zeroCoinAccumulator = readHash(true);
                 //System.out.println("parse zeroCoinAccumulator: "+zeroCoinAccumulator);

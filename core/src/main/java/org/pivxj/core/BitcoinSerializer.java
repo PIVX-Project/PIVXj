@@ -215,6 +215,7 @@ public class BitcoinSerializer extends MessageSerializer {
         } else if (command.equals("merkleblock")) {
             message = makeFilteredBlock(payloadBytes);
         } else if (command.equals("getdata")) {
+            System.out.println("getdata arrived");
             message = new GetDataMessage(params, payloadBytes, this, length);
         } else if (command.equals("getblocks")) {
             message = new GetBlocksMessage(params, payloadBytes);
@@ -224,7 +225,6 @@ public class BitcoinSerializer extends MessageSerializer {
             try {
                 if (payloadBytes.length > MAX_STANDARD_TX_SIZE){
                     log.warn("Receiving huge transaction.. , payload: "+payloadBytes.length);
-                    return null;
                 }
                 message = makeTransaction(payloadBytes, 0, length, hash);
             }catch (ScriptException e){

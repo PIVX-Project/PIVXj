@@ -200,6 +200,9 @@ public class Script {
                 // Though this is allowed, because its value cannot be > 520, it should never actually be used
                 if (bis.available() < 4) throw new ScriptException("Unexpected end of script");
                 dataToRead = ((long)bis.read()) | (((long)bis.read()) << 8) | (((long)bis.read()) << 16) | (((long)bis.read()) << 24);
+            } else if (opcode == OP_ZEROCOINSPEND) {
+                // Whole data is from zerocoin.
+                dataToRead = bis.available();
             }
 
             ScriptChunk chunk;
@@ -217,6 +220,11 @@ public class Script {
                 if (c.equals(chunk)) chunk = c;
             }
             chunks.add(chunk);
+
+            if (opcode == OP_ZEROCOINSPEND) {
+                //Zerocoinspend has no further op codes.
+                break;
+            }
         }
     }
 

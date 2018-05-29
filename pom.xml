@@ -22,14 +22,14 @@
 
 
   <scm>
-    <connection>scm:git:https://github.com/HashEngineering/darkcoinj</connection>
-    <developerConnection>scm:git:https://github.com/HashEngineering/darkcoinj</developerConnection>
-    <url>scm:git:https://github.com/bitcoinj/darkcoinj</url>
+    <connection>scm:git:https://github.com/furszy/pivxj</connection>
+    <developerConnection>scm:git:https://github.com/furszy/pivxj</developerConnection>
+    <url>scm:git:https://github.com/furszy/pivxj</url>
   </scm>
 
   <name>pivxj Parent</name>
   <description>Provides the common configuration for the pivxj modules</description>
-  <url>http://dash.org/dashj/</url>
+  <url>http://pivx.org//</url>
 
   <licenses>
     <license>
@@ -42,7 +42,7 @@
 
   <issueManagement>
     <system>GitHub</system>
-    <url>https://github.com/HashEngineering/dashj/issues</url>
+    <url>https://github.com/furszy/pivxj/issues</url>
   </issueManagement>
 
   <mailingLists>
@@ -54,9 +54,9 @@
 
   <distributionManagement>
     <repository>
-      <id>bintray-pivx-Pivxj</id>
-      <name>dash-Pivxj</name>
-      <url>https://api.bintray.com/maven/dash/Dashj/org.dashj/;publish=1</url>
+      <id>bintray-furszy-pivx</id>
+      <name>pivxj</name>
+      <url>https://dl.bintray.com/furszy/pivx/;publish=1</url>
     </repository>
   </distributionManagement>
 

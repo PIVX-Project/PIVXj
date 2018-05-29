@@ -473,7 +473,7 @@ public abstract class NetworkParameters {
     }
 
     /**
-     * Zerocoin started height in blockchain
+     * LibZerocoin started height in blockchain
      * @return
      */
     public long getZerocoinStartedHeight() {

@@ -505,7 +505,7 @@ public class DeterministicKey extends ECKey {
       *  @throws IllegalArgumentException if the base58 encoded key could not be parsed.
       */
     public static DeterministicKey deserializeB58(@Nullable DeterministicKey parent, String base58, NetworkParameters params) {
-        return deserialize(params, Base58.decodeChecked(base58), parent, DeterministicKeyChain.KeyChainType.BIP32);
+        return deserialize(params, Base58.decodeChecked(base58), parent, DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY);
     }
 
     public static DeterministicKey deserializeB58(@Nullable DeterministicKey parent, String base58, NetworkParameters params, DeterministicKeyChain.KeyChainType keyChainType) {
@@ -516,7 +516,7 @@ public class DeterministicKey extends ECKey {
       * Deserialize an HD Key with no parent
       */
     public static DeterministicKey deserialize(NetworkParameters params, byte[] serializedKey) {
-        return deserialize(params, serializedKey, null, DeterministicKeyChain.KeyChainType.BIP32);
+        return deserialize(params, serializedKey, null, DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY);
     }
 
     /**

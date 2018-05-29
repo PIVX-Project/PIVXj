@@ -1,11 +1,14 @@
 package org.pivxj.core;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.hashengineering.crypto.Hash9;
+import org.junit.Assert;
 import org.pivxj.core.listeners.*;
-import org.pivxj.crypto.DeterministicKey;
-import org.pivxj.crypto.LazyECPoint;
-import org.pivxj.crypto.MnemonicCode;
-import org.pivxj.crypto.MnemonicException;
+import org.pivxj.crypto.*;
+import org.pivxj.net.discovery.DnsDiscovery;
 import org.pivxj.net.discovery.PeerDiscovery;
 import org.pivxj.net.discovery.PeerDiscoveryException;
 import org.pivxj.params.MainNetParams;
@@ -24,17 +27,22 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 import org.spongycastle.crypto.params.ECPublicKeyParameters;
 import org.spongycastle.util.encoders.Hex;
+import sun.applet.Main;
 
 import javax.annotation.Nullable;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.SimpleFormatter;
@@ -45,12 +53,20 @@ import java.util.logging.SimpleFormatter;
 public class MatiTest {
 
     @Test
+    public void hash() throws UnsupportedEncodingException {
+
+        byte[] bytes = "add".getBytes("UTF-8");
+        byte[] res = Hash9.digest(bytes);
+        System.out.println(Hex.toHexString(res));
+    }
+
+    @Test
     public void connectTestnetPeer(){
         NetworkParameters networkParameters = TestNet3Params.get();
         Context context = new Context(networkParameters);
         VersionMessage versionMessage = new VersionMessage(networkParameters, 0);
         versionMessage.relayTxesBeforeFilter=false;
-        Peer peer = new Peer(networkParameters,versionMessage,new PeerAddress("localhost",51472),null);
+        Peer peer = new Peer(networkParameters,versionMessage,new PeerAddress("warrows.fr",51474),null);
         peer.addBlocksDownloadedEventListener(new BlocksDownloadedEventListener() {
             @Override
             public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
@@ -202,7 +218,7 @@ public class MatiTest {
         Wallet wallet2 = Wallet.fromSeed(
                 networkParameters,
                 seedBase,
-                DeterministicKeyChain.KeyChainType.BIP32
+                DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY
         );
 
         String seed2 = wallet2.getKeyChainSeed().toHexString();
@@ -271,6 +287,120 @@ public class MatiTest {
         for (int i = 0; i < 10; i++) {
             assert watchingWallet.freshReceiveAddress().toBase58().equals(wallet.freshReceiveAddress().toBase58()):"address doesn't match";
         }
+
+    }
+
+    @Test
+    public void syncWatchingKey() throws IOException, BlockStoreException {
+        NetworkParameters params = TestNet3Params.get();
+        //String pubKey = "ToEA6nz3Vu6K2cvMHSRBTTipz7iyMt1fs9tFcZPDm4usjo1VrHQabxkBVEyvDo2HtxNmABF6wFxKkYmgCkeMmdtbTCWvHeqQLxdjsX1ceL72zMo";
+        //Wallet watchingWallet = Wallet.fromWatchingKeyB58(params,pubKey,0, DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY);
+        //DeterministicKey xpubKey2 = watchingWallet.getWatchingKey();
+
+
+        Wallet watchingWallet = new Wallet(params);
+        BriefLogFormatter.init();
+
+        FileHandler fh = new FileHandler("MyLogFile.log");
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger("");
+        logger.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+
+        Context context = new Context(params);
+        //File dir = new File("dir");
+        //dir.mkdir();
+        File walletFile = new File("wallet_testnet_3.dat");
+        watchingWallet.saveToFile(walletFile);
+        watchingWallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
+            @Override
+            public void onBeforeAutoSave(File tempFile) {
+
+            }
+
+            @Override
+            public void onAfterAutoSave(File newlySavedFile) {
+
+            }
+        });
+        BlockStore spvBlockStore = new LevelDBBlockStore(context,new File("watching_blockstore_2.dat")); //new LevelDBBlockStore(context,new File("blockstore.dat"));
+        //InputStream inputStream = new FileInputStream(new File("checkpoints"));
+        //CheckpointManager.checkpoint(networkParameters, inputStream, spvBlockStore, System.currentTimeMillis());
+        final BlockChain blockChain = new BlockChain(context,watchingWallet,spvBlockStore);
+        PeerGroup peerGroup = new PeerGroup(params,blockChain);
+        //peerGroup.addPeerDiscovery(new DnsDiscovery(networkParameters));
+        peerGroup.addPeerDiscovery(new PeerDiscovery() {
+            @Override
+            public InetSocketAddress[] getPeers(long services, long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
+                return new InetSocketAddress[]{
+                        //new InetSocketAddress("202.5.21.31",51474),
+                        new InetSocketAddress("warrows.fr",51474)
+                        //new InetSocketAddress("localhost",51474)
+                        //new InetSocketAddress("88.198.192.110",51474)
+                };
+            }
+
+            @Override
+            public void shutdown() {
+
+            }
+        });
+        peerGroup.setDownloadTxDependencies(0);
+        peerGroup.addWallet(watchingWallet);
+        peerGroup.addBlocksDownloadedEventListener(new BlocksDownloadedEventListener() {
+            @Override
+            public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+                //System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
+            }
+        });
+        peerGroup.setMaxPeersToDiscoverCount(1);
+        peerGroup.startBlockChainDownload(new AbstractPeerDataEventListener(){
+            @Override
+            public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+                if ((blocksLeft/10000) == 0) {
+                    System.out.println("block left: " + blocksLeft + ", hash: " + block.getHash().toString());
+                }
+            }
+        });
+        peerGroup.startAsync();
+        peerGroup.downloadBlockChain();
+
+        System.out.println(watchingWallet.toString());
+        System.out.println("blockchain height: "+blockChain.chainHead.getHeight());
+        System.out.println();
+
+        // #########################
+
+        String password = "mati";
+        // Encrypt
+        watchingWallet.encrypt(password);
+
+        Assert.assertTrue("Wallet not encrypted", watchingWallet.isEncrypted());
+
+        logger.info("wallet encrypted ");
+
+        // decrypt
+        watchingWallet.decrypt(password);
+
+        logger.info("Wallet decrypted");
+        Assert.assertTrue("Wallet not decrypted" , !watchingWallet.isEncrypted());
+
+        while (true){
+
+        }
+
+
+    }
+
+    @Test
+    public void testEncryption(){
+
+        NetworkParameters params = TestNet3Params.get();
+        Context.getOrCreate(params);
+
+        Wallet wallet = new Wallet(params);
+
+
 
     }
 
@@ -380,9 +510,17 @@ public class MatiTest {
                 peer.sendMessage(getdata);
             }
         });
+
+        peerGroup.addGetDataEventListener(new GetDataEventListener() {
+            @Nullable
+            @Override
+            public List<Message> getData(Peer peer, GetDataMessage m) {
+                System.out.println(m);
+                return null;
+            }
+        });
         peerGroup.start();
         Peer peer = peerGroup.connectToLocalHost();
-
 
         while (true){
 
@@ -394,8 +532,7 @@ public class MatiTest {
     public Wallet createWallet(NetworkParameters networkParameters,File walletFile) throws IOException {
         Wallet wallet;
         if (!walletFile.exists()){
-            walletFile.createNewFile();
-            wallet = restore(networkParameters);
+            wallet = new Wallet(networkParameters);
         }else {
             try {
                 wallet = Wallet.loadFromFile(walletFile);
@@ -405,6 +542,272 @@ public class MatiTest {
             }
         }
         return wallet;
+    }
+
+    @Test
+    public void parseZerocoinSpend(){
+
+        try {
+
+            NetworkParameters params = MainNetParams.get();
+            Context.getOrCreate(params);
+
+            byte[] encoded = Files.readAllBytes(Paths.get("zc_transaction.txt"));
+            String text = new String(encoded, "UTF-8");
+            System.out.println(text);
+            byte[] zcTransaction = Hex.decode(text);
+            // hash
+            byte[] transactionHash = Sha256Hash.wrap("50f7c828374f73649730740574422786f52d88450d9c39af09decaba24644922").getReversedBytes();
+            // Serialized
+            BitcoinSerializer bitcoinSerializer = new BitcoinSerializer(params,true);
+            Transaction transaction = bitcoinSerializer.makeTransaction(zcTransaction,0,zcTransaction.length,transactionHash);
+            System.out.println(transaction.toString());
+
+            assert transaction.getHashAsString().equals("50f7c828374f73649730740574422786f52d88450d9c39af09decaba24644922") : "Hash is not the same";
+
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void newEcKeyWallet() throws IOException {
+        NetworkParameters params = MainNetParams.get();
+        Context.getOrCreate(params);
+        File walletFile = new File("wallet_new_eckey.dat");
+        Wallet wallet = createWallet(params,walletFile);
+        wallet.saveToFile(walletFile);
+        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
+            @Override
+            public void onBeforeAutoSave(File tempFile) {
+
+            }
+
+            @Override
+            public void onAfterAutoSave(File newlySavedFile) {
+
+            }
+        });
+
+        for (ECKey key : wallet.getIssuedReceiveKeys()) {
+            System.out.println(key.toStringWithPrivate(params));
+        }
+    }
+
+    @Test
+    public void signMultiSigTransaction(){
+
+        NetworkParameters params = MainNetParams.get();
+
+        // First key, my key
+        ECKey key1 = new ECKey(Hex.decode("57148e68f6e774204b8c0ba6921a9342d601413ca3cccc7453112f025410a7ad"),Hex.decode("023910b54c9ee1ab2570efc5ef25b93139cd81c25780b35ea2b9a088b5d3557ae7"));
+
+
+        // Use the redeem script we have saved somewhere to start building the transaction
+        String redeemScriptStr = "5221023910b54c9ee1ab2570efc5ef25b93139cd81c25780b35ea2b9a088b5d3557ae72103a93f64c2d1d2581826c85217eda6f97f45e899897e78bc385d5a7600e2d6252c52ae";
+        Script redeemScript = new Script(Hex.decode(redeemScriptStr));
+
+        // Start building the transaction by adding the unspent inputs we want to use
+        // The data is taken from blockchain.info, and can be found here: https://blockchain.info/rawtx/ca1884b8f2e0ba88249a86ec5ddca04f937f12d4fac299af41a9b51643302077
+        Transaction spendTx = new Transaction(params);
+        ScriptBuilder scriptBuilder = new ScriptBuilder();
+        // The output that we want to redeem..
+        scriptBuilder.data(new String("a91492363c63a03bdd9d532c81a2defb9f2dfdea121587").getBytes()); // Script of this output
+        // tx hash
+        String txHash = "f0bb04058d212955a3d479ea498e901fb004013c6ca863a1c07d820c1735a8ae";
+        TransactionInput input = spendTx.addInput(Sha256Hash.wrap(txHash), 1, scriptBuilder.build());
+
+        // Add outputs to the person receiving pivx
+        Address receiverAddress = Address.fromBase58(params, "D9VYtFMfhcCdRtWrY3m7Dc17yeSrn9R94k");
+        Coin charge = Coin.valueOf(190000); // 0.019 mPIV
+        Script outputScript = ScriptBuilder.createOutputScript(receiverAddress);
+        spendTx.addOutput(charge, outputScript);
+
+        // Sign the first part of the transaction using private key #1
+        Sha256Hash sighash = spendTx.hashForSignature(0, redeemScript, Transaction.SigHash.ALL, false);
+        ECKey.ECDSASignature ecdsaSignature = key1.sign(sighash);
+        TransactionSignature transactionSignarture = new TransactionSignature(ecdsaSignature, Transaction.SigHash.ALL, false);
+
+        // Create p2sh multisig input script
+        Script inputScript = ScriptBuilder.createP2SHMultiSigInputScript(Arrays.asList(transactionSignarture), redeemScript);
+
+        // Add the script signature to the input
+        input.setScriptSig(inputScript);
+        System.out.println(Hex.toHexString(spendTx.bitcoinSerialize()));
+    }
+
+    @Test
+    public void signWithSecondKey(){
+        NetworkParameters params = MainNetParams.get();
+        String txStr= "0100000001aea835170c827dc0a163a86c3c0104b01f908e49ea79d4a35529218d0504bbf0010000009200483045022100a11fac3165ef51adc12324d281384f7528effe83627340e3370e9c7edf2cb4d502205c24923f16d5c0a607bd137de31a1df552adcc265644fac5bab5079ed410796d01475221023910b54c9ee1ab2570efc5ef25b93139cd81c25780b35ea2b9a088b5d3557ae72103a93f64c2d1d2581826c85217eda6f97f45e899897e78bc385d5a7600e2d6252c52aeffffffff0130e60200000000001976a9142fbed053e4cd6a6d78a36da33cd797fc7572d53c88ac00000000";
+        Transaction spendTx = new Transaction(params,Hex.decode(txStr));
+
+        // Get the input chunks
+        Script inputScript = spendTx.getInput(0).getScriptSig();
+        List<ScriptChunk> scriptChunks = inputScript.getChunks();
+
+        // Create a list of all signatures. Start by extracting the existing ones from the list of script schunks.
+        // The last signature in the script chunk list is the redeemScript
+        List<TransactionSignature> signatureList = new ArrayList<TransactionSignature>();
+        Iterator<ScriptChunk> iterator = scriptChunks.iterator();
+        Script redeemScript = null;
+
+        while (iterator.hasNext())
+        {
+            ScriptChunk chunk = iterator.next();
+
+            if (iterator.hasNext() && chunk.opcode != 0)
+            {
+                TransactionSignature transactionSignarture = TransactionSignature.decodeFromBitcoin(chunk.data, false);
+                signatureList.add(transactionSignarture);
+            } else
+            {
+                redeemScript = new Script(chunk.data);
+            }
+        }
+
+        // Create the sighash using the redeem script
+        Sha256Hash sighash = spendTx.hashForSignature(0, redeemScript, Transaction.SigHash.ALL, false);
+        ECKey.ECDSASignature secondSignature;
+
+        // Take out the key and sign the signhash
+        ECKey key2 = new ECKey(Hex.decode("e9cd2c5daff035f1692e72c5d3c6ef9518d8a317e92cbe178bd5d1019fbf1cc9"),Hex.decode("03a93f64c2d1d2581826c85217eda6f97f45e899897e78bc385d5a7600e2d6252c"));
+        secondSignature = key2.sign(sighash);
+
+        // Add the second signature to the signature list
+        TransactionSignature transactionSignarture = new TransactionSignature(secondSignature, Transaction.SigHash.ALL, false);
+        signatureList.add(transactionSignarture);
+
+        // Rebuild p2sh multisig input script
+        inputScript = ScriptBuilder.createP2SHMultiSigInputScript(signatureList, redeemScript);
+        spendTx.getInput(0).setScriptSig(inputScript);
+
+        System.out.println(Hex.toHexString(spendTx.bitcoinSerialize()));
+
+    }
+
+    private static AtomicBoolean flag = new AtomicBoolean(false);
+
+    @Test
+    public void multiSig() throws IOException, BlockStoreException {
+        BriefLogFormatter.init();
+        final NetworkParameters params = MainNetParams.get();
+        Context context = Context.getOrCreate(params);
+        File walletFile = new File("wallet_4_multi_sig.dat");
+        Wallet wallet = createWallet(params,walletFile);
+
+
+        // Add watched address
+        wallet.addWatchedAddress(Address.fromBase58(params,"6XhmA6QewRiLVaakw19RHS5Y5TMSGzFte1"));
+        Script redeemScript = new Script(Hex.decode("5221023c90f28fe64a6b7165c5b323e42c9e6f40822e0509c8bdc0db9c4ef8436efbc721030609b122a03279486e92893726c444267973a7b039fa02487f352dcad9b32c5352ae"));
+        Script p2sh = ScriptBuilder.createP2SHOutputScript(redeemScript);
+        wallet.addWatchedScripts(Lists.newArrayList(redeemScript,p2sh));
+
+        BlockStore spvBlockStore = new LevelDBBlockStore(context,new File("blockstore_multi_sig1.dat")); //new LevelDBBlockStore(context,new File("blockstore.dat"));
+        //InputStream inputStream = new FileInputStream(new File("checkpoints"));
+
+        try {
+            String filename = "checkpoints";
+            String suffix = params instanceof MainNetParams ? "":"-testnet";
+            final InputStream checkpointsInputStream =  new FileInputStream(new File(filename)); //context.openAssestsStream(filename+suffix);
+            CheckpointManager.checkpoint(params, checkpointsInputStream, spvBlockStore, 1519731317);
+
+        }catch (final IOException x) {
+            x.printStackTrace();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        final BlockChain blockChain = new BlockChain(context,wallet,spvBlockStore);
+        final PeerGroup peerGroup = new PeerGroup(params,blockChain);
+
+        peerGroup.addPeerDiscovery(new PeerDiscovery() {
+            @Override
+            public InetSocketAddress[] getPeers(long services, long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
+                return new InetSocketAddress[]{
+                        //new InetSocketAddress("202.5.21.31",51474),
+                        new InetSocketAddress("185.101.98.175",8443)
+                        //new InetSocketAddress("localhost",51474)
+                        //new InetSocketAddress("88.198.192.110",51474)
+                };
+            }
+
+            @Override
+            public void shutdown() {
+
+            }
+        });
+        peerGroup.setDownloadTxDependencies(0);
+        peerGroup.addWallet(wallet);
+        peerGroup.addBlocksDownloadedEventListener(new BlocksDownloadedEventListener() {
+            @Override
+            public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+                //System.out.println("block left: "+blocksLeft+", hash: "+block.getHash().toString());
+            }
+        });
+        peerGroup.setMaxPeersToDiscoverCount(1);
+
+        peerGroup.addConnectedEventListener(new PeerConnectedEventListener() {
+            @Override
+            public void onPeerConnected(Peer peer, int peerCount) {
+
+            }
+        });
+
+        peerGroup.startBlockChainDownload(new AbstractPeerDataEventListener(){
+            @Override
+            public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+                if ((blocksLeft/10000) == 0) {
+                    System.out.println("block left: " + blocksLeft + ", hash: " + block.getHash().toString());
+                }
+            }
+        });
+        peerGroup.startAsync();
+        peerGroup.downloadBlockChain();
+
+        System.out.println(wallet.toString(false,true,false,blockChain));
+        System.out.println("blockchain height: "+blockChain.chainHead.getHeight());
+
+
+        System.out.println("########################");
+        System.out.println("########################");
+        System.out.println("########################");
+
+        for (TransactionOutput transactionOutput : wallet.getUnspents()) {
+            System.out.println("---------------");
+            System.out.println(transactionOutput.getOutPointFor().toString());
+            System.out.println("---------------");
+        }
+
+        while (true){
+        }
+
+    }
+
+    @Test
+    public void checkTx() throws IOException {
+        BriefLogFormatter.init();
+        final NetworkParameters params = MainNetParams.get();
+        Context context = Context.getOrCreate(params);
+        File walletFile = new File("wallet_4_multi_sig.dat");
+        Wallet wallet = createWallet(params,walletFile);
+
+
+        // Add watched address
+        wallet.addWatchedAddress(Address.fromBase58(params,"6XhmA6QewRiLVaakw19RHS5Y5TMSGzFte1"));
+        Script redeemScript = new Script(Hex.decode("5221023c90f28fe64a6b7165c5b323e42c9e6f40822e0509c8bdc0db9c4ef8436efbc721030609b122a03279486e92893726c444267973a7b039fa02487f352dcad9b32c5352ae"));
+        Script p2sh = ScriptBuilder.createP2SHOutputScript(redeemScript);
+        wallet.addWatchedScripts(Lists.newArrayList(redeemScript,p2sh));
+
+        System.out.println(wallet.toString(false,true,false,null));
+        System.out.println("########################");
+        System.out.println("########################");
+        System.out.println("########################");
+        System.out.println(Arrays.toString(wallet.getUnspents().toArray()));
     }
 
     @Test
@@ -422,15 +825,10 @@ public class MatiTest {
         Context context = new Context(networkParameters);
         //File dir = new File("dir");
         //dir.mkdir();
-        File walletFile = new File("wallet5.dat");
-        //Wallet wallet = createWallet(networkParameters,walletFile);
-        Wallet wallet = restore(networkParameters);
+        File walletFile = new File("wallet_2.dat");
+        Wallet wallet = createWallet(networkParameters,walletFile);
+        //Wallet wallet = restore(networkParameters);
         System.out.println("Wallet keys: "+Arrays.toString(wallet.getWatchedAddresses().toArray()));
-        List<ECKey> list = wallet.getActiveKeyChain().getIssuedReceiveKeys();
-        for (ECKey ecKey : list) {
-            System.out.println("Address: "+ecKey.toAddress(networkParameters));
-            wallet.addWatchedAddress(ecKey.toAddress(networkParameters));
-        }
         wallet.saveToFile(walletFile);
         wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
             @Override
@@ -443,17 +841,21 @@ public class MatiTest {
 
             }
         });
-        BlockStore spvBlockStore = new LevelDBBlockStore(context,new File("blockstore.dat")); //new LevelDBBlockStore(context,new File("blockstore.dat"));
+        // add the zspend
+        wallet.addWatchedAddress(Address.fromBase58(networkParameters,"DFuEgkFtkXrMQfFoZXckm88LuqzAAukGK3"));
+
+        BlockStore spvBlockStore = new LevelDBBlockStore(context,new File("blockstore_m3.dat")); //new LevelDBBlockStore(context,new File("blockstore.dat"));
         //InputStream inputStream = new FileInputStream(new File("checkpoints"));
         //CheckpointManager.checkpoint(networkParameters, inputStream, spvBlockStore, System.currentTimeMillis());
         final BlockChain blockChain = new BlockChain(context,wallet,spvBlockStore);
         PeerGroup peerGroup = new PeerGroup(networkParameters,blockChain);
+        //peerGroup.addPeerDiscovery(new DnsDiscovery(networkParameters));
         peerGroup.addPeerDiscovery(new PeerDiscovery() {
             @Override
             public InetSocketAddress[] getPeers(long services, long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
                 return new InetSocketAddress[]{
                         //new InetSocketAddress("202.5.21.31",51474),
-                        new InetSocketAddress("localhost",51474)
+                        new InetSocketAddress("185.101.98.175",8443)
                         //new InetSocketAddress("localhost",51474)
                         //new InetSocketAddress("88.198.192.110",51474)
                 };
@@ -484,9 +886,9 @@ public class MatiTest {
         peerGroup.startAsync();
         peerGroup.downloadBlockChain();
 
-        System.out.println(wallet.toString());
+        System.out.println(wallet.toString(false,true,false,blockChain));
         System.out.println("blockchain height: "+blockChain.chainHead.getHeight());
-        System.out.println();
+
         while (true){
 
         }
@@ -520,6 +922,88 @@ public class MatiTest {
         System.out.println(script);
 
         //TransactionOutput transactionOutput1 = new TransactionOutput(MainNetParams.get(),tx,)
+    }
+
+    @Test
+    public void verifyScript(){
+
+        Script redeemScript = new Script(Hex.decode("5221023c90f28fe64a6b7165c5b323e42c9e6f40822e0509c8bdc0db9c4ef8436efbc721030609b122a03279486e92893726c444267973a7b039fa02487f352dcad9b32c5352ae"));
+
+        System.out.println("redeemScript: "+redeemScript.toString());
+
+        // Hash of the redeem script
+        byte[] hash = Utils.sha256hash160(redeemScript.getProgram());
+        String hashedRedeemScriptHex = Hex.toHexString(hash);
+
+        System.out.println(hashedRedeemScriptHex);
+
+        assert hashedRedeemScriptHex.equals("bdddbfdf7f8cc7ab7d42361324d036004204cf83") : "Fatal error" ;
+
+
+    }
+
+    @Test
+    public void decodeMultiSigAndCheckvalidity(){
+        NetworkParameters param = MainNetParams.get();
+        Context.getOrCreate(param);
+        Transaction tx = new Transaction(
+                param,
+                Hex.decode("0100000001105f6bb76efbca8be0a35674c8ece30b48772d8315d6e2f6d30234b6d0cd873101000000db00483045022100ff5fdac77de16e4f4761c7be657bf4eecb773add010bb475f05109d9ffbe4e4a02207b52af3d16aec0c4c9257175aaef1511b9cc6e790bf6223dda79e57d3d80a58f01483045022100b81b7ac2e1db8542415de6d2fa2293226e3b3dedb7b0a55943f6bfdefb25018f02203f00a0509bf1fe8235b84fd0343e02e508ae466db391fcba3740f4202a944e290147522102eed43149a2d0d681ceec269ff64f0380ce011f3d42fdaf47b0cc9b9ff0944c802103fb8ea7eb154134e796d68cf5ac24aff7f9e0c89be91315338acc6b995b8e174552aeffffffff0278ff73ad020000001976a914b4d8da98ed0efa48ed3c453415d7c5eea19b1c9988ac78ff73ad020000001976a9145fd67df219b31729a2137a4a5a512298520fce0e88ac00000000")
+        );
+
+        // Change redeem script..
+        Script scriptSig = tx.getInput(0).getScriptSig();
+        ScriptBuilder scriptBuilder = new ScriptBuilder();
+        for (ScriptChunk scriptChunk : scriptSig.getChunks()) {
+            System.out.println("Chunk: "+scriptChunk);
+            // Check if it's the redeem script
+            if (scriptChunk.opcode == 71){
+                // redeem script
+                scriptBuilder.data(Hex.decode("5221023c90f28fe64a6b7165c5b323e42c9e6f40822e0509c8bdc0db9c4ef8436efbc721030609b122a03279486e92893726c444267973a7b039fa02487f352dcad9b32c5352ae"));
+            }else {
+                scriptBuilder.addChunk(scriptChunk);
+            }
+        }
+
+        Script newScript = scriptBuilder.build();
+        tx.getInput(0).setScriptSig(newScript);
+
+
+        System.out.println("new script: "+newScript.toString());
+
+
+        System.out.println(tx);
+
+        Transaction txToRedeem = new Transaction(
+                param,
+                Hex.decode("01000000010ea11e99335a551e5b21d673d024347b32b843cfdeb90efa5681d8745e9437f2010000006a47304402201d7e0e552384ce0ff7d6ab386e3274b4be13c0f111048983712558044986e216022055bc59664fb6ecbc80476c94d05999efa221e1e4ca7b984e20eb00aad254d5ea012103ae5432f9a8bb7183c80390a83bbfb67b9b281a1aa180bbd793275611750b446dffffffff02c08df262020000001976a9149b49c6d2da780f5fa1e969398539d749b68d8e9d88ac0026e85a0500000017a914bdddbfdf7f8cc7ab7d42361324d036004204cf838700000000")
+        );
+        tx.getInput(0).connect(txToRedeem,null);
+        System.out.println(
+                "####################\n"+tx);
+        //tx.getInput(0).verify(new TransactionOutput(param,null,Hex.decode(),0));
+        tx.getInput(0).verify();
+    }
+
+    @Test
+    public void testDecodeAndVerify(){
+        NetworkParameters param = MainNetParams.get();
+        Context.getOrCreate(param);
+        Transaction tx = new Transaction(
+                param,
+                Hex.decode("0100000001105f6bb76efbca8be0a35674c8ece30b48772d8315d6e2f6d30234b6d0cd87310100000091004730440220086ed6fe550915bc5d81f29de3c940145078ef1f41e2e128e1b1010f0eac9e7602202ea850bb112bf02a87ee6e058859138930727072d0f9771b8edc5dfa22ac912e01475221023c90f28fe64a6b7165c5b323e42c9e6f40822e0509c8bdc0db9c4ef8436efbc721030609b122a03279486e92893726c444267973a7b039fa02487f352dcad9b32c5352aeffffffff0278ff73ad020000001976a914b4d8da98ed0efa48ed3c453415d7c5eea19b1c9988ac78ff73ad020000001976a9145fd67df219b31729a2137a4a5a512298520fce0e88ac00000000")
+        );
+
+        Transaction txToRedeem = new Transaction(
+                param,
+                Hex.decode("01000000010ea11e99335a551e5b21d673d024347b32b843cfdeb90efa5681d8745e9437f2010000006a47304402201d7e0e552384ce0ff7d6ab386e3274b4be13c0f111048983712558044986e216022055bc59664fb6ecbc80476c94d05999efa221e1e4ca7b984e20eb00aad254d5ea012103ae5432f9a8bb7183c80390a83bbfb67b9b281a1aa180bbd793275611750b446dffffffff02c08df262020000001976a9149b49c6d2da780f5fa1e969398539d749b68d8e9d88ac0026e85a0500000017a914bdddbfdf7f8cc7ab7d42361324d036004204cf838700000000")
+        );
+        tx.getInput(0).connect(txToRedeem,null);
+        System.out.println(
+                "####################\n"+tx);
+        //tx.getInput(0).verify(new TransactionOutput(param,null,Hex.decode(),0));
+        tx.getInput(0).verify();
+
     }
 
 

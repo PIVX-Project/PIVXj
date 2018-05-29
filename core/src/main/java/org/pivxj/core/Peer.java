@@ -1327,7 +1327,7 @@ public class Peer extends PeerSocketHandler {
         List<InventoryItem> sporks = new LinkedList<InventoryItem>();
 
         //InstantSend instantSend = InstantSend.get(blockChain);
-        log.info("inv arrived, items: "+Arrays.toString(items.toArray()));
+        //log.info("inv arrived, items: "+Arrays.toString(items.toArray()));
 
         for (InventoryItem item : items) {
             switch (item.type) {

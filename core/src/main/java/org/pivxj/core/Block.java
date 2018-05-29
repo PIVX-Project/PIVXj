@@ -60,13 +60,13 @@ public class Block extends Message {
 
     /** How many bytes are required to represent a block header WITHOUT the trailing 00 length byte. */
     public static final int HEADER_SIZE = 80;
-    /*** Zerocoin blocks header size */
+    /*** LibZerocoin blocks header size */
     public static final int ZEROCOIN_HEADER_SIZE = 112;
 
     static final long ALLOWED_TIME_DRIFT = 2 * 60 * 60; // Same value as Bitcoin Core.
 
     /**
-     * Zerocoin block version
+     * LibZerocoin block version
      * Includes an accumulator on the block.
      */
     public static final long ZEROCOIN_BLOCK_VERSION = 4;
@@ -118,7 +118,7 @@ public class Block extends Message {
     private Sha256Hash hash;
 
     /**
-     * Zerocoin accumulator
+     * LibZerocoin accumulator
      */
     private Sha256Hash zeroCoinAccumulator;
 

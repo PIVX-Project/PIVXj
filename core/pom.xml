@@ -27,7 +27,7 @@
 
     <artifactId>pivxj-core</artifactId>
 
-    <name>dashj</name>
+    <name>pivxj</name>
     <description>A Java Pivx library</description>
 
     <packaging>jar</packaging>
@@ -336,6 +336,14 @@
                 <groupId>org.eluder.coveralls</groupId>
                 <artifactId>coveralls-maven-plugin</artifactId>
                 <version>3.1.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
             </plugin>
         </plugins>
     </build>

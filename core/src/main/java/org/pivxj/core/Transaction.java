@@ -546,7 +546,6 @@ public class Transaction extends ChildMessage {
     @Override
     protected void parse() throws ProtocolException {
         cursor = offset;
-        System.out.println("Starting reading transaction cursor offset: "+cursor);
         version = readUint32();
         optimalEncodingMessageSize = 4;
 
@@ -694,9 +693,13 @@ public class Transaction extends ChildMessage {
                     }
                 }
                 if (in.hasSequence()) {
-                    s.append("\n          sequence:").append(Long.toHexString(in.getSequenceNumber()));
-                    if (in.isOptInFullRBF())
-                        s.append(", opts into full RBF");
+                    if (in.isZcspend()){
+                        s.append("\n          denomination:").append(in.getSequenceNumber());
+                    }else {
+                        s.append("\n          sequence:").append(Long.toHexString(in.getSequenceNumber()));
+                        if (in.isOptInFullRBF())
+                            s.append(", opts into full RBF");
+                    }
                 }
             } catch (Exception e) {
                 s.append("[exception: ").append(e.getMessage()).append("]");

@@ -166,7 +166,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     // and always 1 for other transaction types
     protected int sigsRequiredToSpend = 1;
     // Key Chain type to support bip32 or bip44
-    private KeyChainType keyChainType = KeyChainType.BIP32;
+    private KeyChainType keyChainType = KeyChainType.BIP44_PIVX_ONLY;
 
     // Key Chain version to support BIP44 fixed without refactor this code too much
     public static enum KeyChainType{
@@ -267,7 +267,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 chain = new DeterministicKeyChain(seed);
             } else {
                 watchingKey.setCreationTimeSeconds(seedCreationTimeSecs);
-                chain = new DeterministicKeyChain(watchingKey,KeyChainType.BIP32);
+                chain = new DeterministicKeyChain(watchingKey,KeyChainType.BIP44_PIVX_ONLY);
             }
 
             return chain;
@@ -330,7 +330,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * if the starting seed is the same.
      */
     protected DeterministicKeyChain(DeterministicSeed seed) {
-        this(seed, null,KeyChainType.BIP32);
+        this(seed, null,KeyChainType.BIP44_PIVX_ONLY);
     }
 
     /**
@@ -357,7 +357,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * <p>Watch key has to be an account key.</p>
      */
     protected DeterministicKeyChain(DeterministicKey watchKey, boolean isFollowing) {
-        this(watchKey,KeyChainType.BIP32);
+        this(watchKey,KeyChainType.BIP44_PIVX_ONLY);
         this.isFollowing = isFollowing;
     }
 
@@ -374,7 +374,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * Creates a key chain that watches the given account key.
      */
     public static DeterministicKeyChain watch(DeterministicKey accountKey) {
-        return new DeterministicKeyChain(accountKey,KeyChainType.BIP32);
+        return new DeterministicKeyChain(accountKey,KeyChainType.BIP44_PIVX_ONLY);
     }
 
     /**
@@ -435,12 +435,14 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      *
      * See also {@link #makeKeyChainFromSeed(DeterministicSeed)}
      */
-    protected DeterministicKeyChain(KeyCrypter crypter, KeyParameter aesKey, DeterministicKeyChain chain) {
+    protected DeterministicKeyChain(KeyCrypter crypter, KeyParameter aesKey, DeterministicKeyChain chain, KeyChainType keyChainType) {
         // Can't encrypt a watching chain.
         checkNotNull(chain.rootKey);
         checkNotNull(chain.seed);
 
         checkArgument(!chain.rootKey.isEncrypted(), "Chain already encrypted");
+
+        this.keyChainType = keyChainType;
 
         this.issuedExternalKeys = chain.issuedExternalKeys;
         this.issuedInternalKeys = chain.issuedInternalKeys;
@@ -864,7 +866,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         int sigsRequiredToSpend = 1;
 
         // Determine KeyChainType
-        KeyChainType keyChainType = KeyChainType.BIP32;
+        KeyChainType keyChainType = KeyChainType.BIP44_PIVX_ONLY;
         // Quick loop to see if the first key correspond to a BIP44 path.
         for (Protos.Key key : keys) {
             // Deserialize the path through the tree.
@@ -1047,7 +1049,11 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
 
     @Override
     public DeterministicKeyChain toEncrypted(KeyCrypter keyCrypter, KeyParameter aesKey) {
-        return new DeterministicKeyChain(keyCrypter, aesKey, this);
+        return toEncrypted(keyCrypter,aesKey,KeyChainType.BIP44_PIVX_ONLY);
+    }
+
+    public DeterministicKeyChain toEncrypted(KeyCrypter keyCrypter, KeyParameter aesKey, KeyChainType keyChainType) {
+        return new DeterministicKeyChain(keyCrypter, aesKey, this, keyChainType);
     }
 
     @Override

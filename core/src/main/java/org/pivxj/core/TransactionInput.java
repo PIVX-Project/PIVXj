@@ -24,6 +24,7 @@ import org.pivxj.wallet.RedeemData;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import org.pivxj.zerocoin.LibZerocoin;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -151,8 +152,32 @@ public class TransactionInput extends ChildMessage {
      * Coinbase transactions have special inputs with hashes of zero. If this is such an input, returns true.
      */
     public boolean isCoinBase() {
-        return outpoint.getHash().equals(Sha256Hash.ZERO_HASH) &&
+        boolean ret = outpoint.getHash().equals(Sha256Hash.ZERO_HASH) &&
                 (outpoint.getIndex() & 0xFFFFFFFFL) == 0xFFFFFFFFL;  // -1 but all is serialized to the wire as unsigned int.
+        // Check for zcspend/zcmint
+        if (ret){
+            try {
+                LibZerocoin.CoinDenomination.fromValue((int) sequence);
+                return false;
+            }catch (Exception e){
+                // Nothing..
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Check for zerocoin spend
+     * @return
+     */
+    public boolean isZcspend() {
+        try {
+            LibZerocoin.CoinDenomination.fromValue((int) sequence);
+            return true;
+        }catch (Exception e){
+            // Nothing..
+        }
+        return false;
     }
 
     /**
@@ -493,12 +518,20 @@ public class TransactionInput extends ChildMessage {
             if (isCoinBase()) {
                 s.append(": COINBASE");
             } else {
-                s.append(" for [").append(outpoint).append("]: ").append(getScriptSig());
-                String flags = Joiner.on(", ").skipNulls().join(
-                        hasSequence() ? "sequence: " + Long.toHexString(sequence) : null,
-                        isOptInFullRBF() ? "opts into full RBF" : null);
-                if (!flags.isEmpty())
-                    s.append(" (").append(flags).append(')');
+                if (isZcspend()){
+                    s.append(" for [").append(outpoint).append("]: ").append(getScriptSig());
+
+                    String flags = hasSequence() ? "sequence: " + sequence : null;
+                    if (flags != null)
+                        s.append(" (").append(flags).append(')');
+                }else {
+                    s.append(" for [").append(outpoint).append("]: ").append(getScriptSig());
+                    String flags = Joiner.on(", ").skipNulls().join(
+                            hasSequence() ? "sequence: " + Long.toHexString(sequence) : null,
+                            isOptInFullRBF() ? "opts into full RBF" : null);
+                    if (!flags.isEmpty())
+                        s.append(" (").append(flags).append(')');
+                }
             }
             return s.toString();
         } catch (ScriptException e) {

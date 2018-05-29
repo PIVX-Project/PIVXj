@@ -15,3 +15,9 @@ libs/
 checkpoints
 checkpoints-testnet.txt
 checkpoints.txt
+*.txt
+.gradle/
+*.log
+*.DS_Store
+*.db
+core/2.0.32_pivx-wallet-backup_org.pivx.production-2017-11-20

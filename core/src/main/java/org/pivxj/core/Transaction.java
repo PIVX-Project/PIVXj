@@ -1250,9 +1250,16 @@ public class Transaction extends ChildMessage {
         Coin valueOut = Coin.ZERO;
         HashSet<TransactionOutPoint> outpoints = new HashSet<TransactionOutPoint>();
         for (TransactionInput input : inputs) {
-            if (outpoints.contains(input.getOutpoint())) {
-                log.error("Duplicated output in a transaction "+toString());
-                throw new VerificationException.DuplicatedOutPoint();
+            if (input.isZcspend()){
+                // If it's a zc_spend then the connected output parentTx hash will be 000.. as they are new minted coins.
+                // for now i can  remove the verifications as there is no wallet mixing zc_spends and regular piv spend
+                // but this needs to be checked again in the future.
+                //log.warn("Duplicated output in zc transaction " + toString());
+            }else {
+                if (outpoints.contains(input.getOutpoint())) {
+                    log.error("Duplicated output in a transaction " + toString());
+                    throw new VerificationException.DuplicatedOutPoint();
+                }
             }
             outpoints.add(input.getOutpoint());
         }

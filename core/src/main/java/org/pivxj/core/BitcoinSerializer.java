@@ -259,7 +259,8 @@ public class BitcoinSerializer extends MessageSerializer {
         } else if (command.equals("ix")) {
             return new TransactionLockRequest(params, payloadBytes);
         } else if (command.equals("txlvote")) {
-            return new TransactionLockVote(params, payloadBytes);
+            log.warn("txlvote arrived, swiftX lock transaction!, THIS functionality is not active yet");
+            return null; // new TransactionLockVote(params, payloadBytes);
         } else if (command.equals("dsq")) {
             log.warn("darksend message arrived");
             return new DarkSendQueue(params, payloadBytes);

@@ -233,6 +233,16 @@ public class Utils {
         return out;
     }
 
+
+    public static byte[] serializeBigInteger(BigInteger bigInteger){
+        return Utils.reverseBytes(Utils.encodeMPI(bigInteger,false));
+    }
+
+    public static void serializeBigInteger(OutputStream buf, BigInteger bigInteger) throws IOException {
+        byte[] num = serializeBigInteger(bigInteger);
+        buf.write(new VarInt(num.length).encode());
+        buf.write(num);
+    }
     /**
      * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
      * a 4 byte big endian length field, followed by the stated number of bytes representing

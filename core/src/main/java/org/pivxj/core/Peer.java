@@ -34,10 +34,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import net.jcip.annotations.GuardedBy;
+import org.pivxj.zerocoin.PubcoinsMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -80,6 +82,8 @@ public class Peer extends PeerSocketHandler {
         = new CopyOnWriteArrayList<ListenerRegistration<PreMessageReceivedEventListener>>();
     private final CopyOnWriteArrayList<ListenerRegistration<OnTransactionBroadcastListener>> onTransactionEventListeners
         = new CopyOnWriteArrayList<ListenerRegistration<OnTransactionBroadcastListener>>();
+    private final CopyOnWriteArrayList<ListenerRegistration<OnGetDataResponseEventListener>> onGetDataResponseEventListener
+            = new CopyOnWriteArrayList<>();
     // Whether to try and download blocks and transactions from this peer. Set to false by PeerGroup if not the
     // primary peer. This is to avoid redundant work and concurrency problems with downloading the same chain
     // in parallel.
@@ -374,6 +378,16 @@ public class Peer extends PeerSocketHandler {
         preMessageReceivedEventListeners.add(new ListenerRegistration<PreMessageReceivedEventListener>(listener, executor));
     }
 
+    /** Registers a listener that is called immediately before a message is received */
+    public void addOnGetDataResponseEventListener(OnGetDataResponseEventListener listener) {
+        addOnGetDataResponseEventListener(Threading.USER_THREAD, listener);
+    }
+
+    /** Registers a listener that is called immediately before a message is received */
+    public void addOnGetDataResponseEventListener(Executor executor, OnGetDataResponseEventListener listener) {
+        onGetDataResponseEventListener.add(new ListenerRegistration<>(listener, executor));
+    }
+
     public boolean removeBlocksDownloadedEventListener(BlocksDownloadedEventListener listener) {
         return ListenerRegistration.removeFromList(listener, blocksDownloadedEventListeners);
     }
@@ -400,6 +414,10 @@ public class Peer extends PeerSocketHandler {
 
     public boolean removePreMessageReceivedEventListener(PreMessageReceivedEventListener listener) {
         return ListenerRegistration.removeFromList(listener, preMessageReceivedEventListeners);
+    }
+
+    public boolean removeOnGetDataResponse(OnGetDataResponseEventListener listener) {
+        return ListenerRegistration.removeFromList(listener, onGetDataResponseEventListener);
     }
 
     @Override
@@ -529,6 +547,8 @@ public class Peer extends PeerSocketHandler {
             }catch (VerificationException.DuplicatedOutPoint e){
                 log.error("Duplicated output, could be a zcspend output..",e);
             }
+        } else if(m instanceof PubcoinsMessage){
+            processPubcoins((PubcoinsMessage)m);
         } else if (m instanceof GetDataMessage) {
             processGetData((GetDataMessage) m);
         } else if (m instanceof AddressMessage) {
@@ -583,6 +603,12 @@ public class Peer extends PeerSocketHandler {
         else
         {
             log.warn("{}: Received unhandled message: {}", this, m);
+        }
+    }
+
+    private void processPubcoins(PubcoinsMessage m) {
+        for (ListenerRegistration<OnGetDataResponseEventListener> getDataEventListener : onGetDataResponseEventListener) {
+            getDataEventListener.listener.onResponseReceived(m);
         }
     }
 

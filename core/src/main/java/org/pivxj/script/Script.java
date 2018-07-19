@@ -223,6 +223,7 @@ public class Script {
 
             if (opcode == OP_ZEROCOINSPEND) {
                 //Zerocoinspend has no further op codes.
+
                 break;
             }
         }

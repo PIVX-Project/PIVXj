@@ -54,6 +54,10 @@ public class GetDataMessage extends ListMessage {
         addItem(new InventoryItem(InventoryItem.Type.Block, hash));
     }
 
+    public void addPubcoinsBlockHash(Sha256Hash hash){
+        addItem(new InventoryItem(InventoryItem.Type.Pubcoins, hash));
+    }
+
     public void addFilteredBlock(Sha256Hash hash) {
         addItem(new InventoryItem(InventoryItem.Type.FilteredBlock, hash));
     }

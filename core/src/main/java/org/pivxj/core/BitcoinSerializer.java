@@ -17,6 +17,8 @@
 
 package org.pivxj.core;
 
+import org.pivxj.zerocoin.GenWitMessage;
+import org.pivxj.zerocoin.PubcoinsMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
@@ -73,6 +75,7 @@ public class BitcoinSerializer extends MessageSerializer {
         names.put(RejectMessage.class, "reject");
         names.put(GetUTXOsMessage.class, "getutxos");
         names.put(UTXOsMessage.class, "utxos");
+        names.put(GenWitMessage.class, "genwit");
 
         //Dash specific messages
         names.put(DarkSendElectionEntryPingMessage.class, "dseep");
@@ -208,14 +211,13 @@ public class BitcoinSerializer extends MessageSerializer {
         Message message = null;
         if (command.equals("version")) {
             return new VersionMessage(params, payloadBytes);
-        } else if (command.equals("inv")) { 
+        } else if (command.equals("inv")) {
             message = makeInventoryMessage(payloadBytes, length);
         } else if (command.equals("block")) {
             message = makeBlock(payloadBytes, length);
         } else if (command.equals("merkleblock")) {
             message = makeFilteredBlock(payloadBytes);
         } else if (command.equals("getdata")) {
-            System.out.println("getdata arrived");
             message = new GetDataMessage(params, payloadBytes, this, length);
         } else if (command.equals("getblocks")) {
             message = new GetBlocksMessage(params, payloadBytes);
@@ -230,6 +232,8 @@ public class BitcoinSerializer extends MessageSerializer {
             }catch (ScriptException e){
                 log.error("make transaction, "+ Hex.toHexString(payloadBytes),e);
             }
+        } else if (command.equals("pubcoins")){
+            message = makePubcoinsMessage(payloadBytes, length);
         } else if (command.equals("addr")) {
             message = makeAddressMessage(payloadBytes, length);
         } else if (command.equals("ping")) {
@@ -291,6 +295,7 @@ public class BitcoinSerializer extends MessageSerializer {
         return message;
     }
 
+
     /**
      * Get the network parameters for this serializer.
      */
@@ -323,6 +328,11 @@ public class BitcoinSerializer extends MessageSerializer {
     @Override
     public Block makeBlock(final byte[] payloadBytes, final int offset, final int length) throws ProtocolException {
         return new Block(params, payloadBytes, offset, this, length);
+    }
+
+    //@Override
+    public Message makePubcoinsMessage(byte[] payloadBytes, int length) {
+        return new PubcoinsMessage(params, payloadBytes, 0, length);
     }
 
     /**

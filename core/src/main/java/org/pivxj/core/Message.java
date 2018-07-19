@@ -315,6 +315,12 @@ public abstract class Message {
         return new BigInteger(Utils.reverseBytes(readBytes(8)));
     }
 
+    protected BigInteger readBignum() throws ProtocolException {
+        // Java does not have an unsigned 64 bit type. So scrape it off the wire then flip.
+        long lenght = readVarInt();
+        return Utils.decodeMPI(Utils.reverseBytes(readBytes((int) lenght)),false);
+    }
+
     protected long readVarInt() throws ProtocolException {
         return readVarInt(0);
     }

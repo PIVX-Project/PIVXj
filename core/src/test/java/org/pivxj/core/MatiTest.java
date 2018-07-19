@@ -23,6 +23,9 @@ import org.pivxj.store.LevelDBBlockStore;
 import org.pivxj.utils.BriefLogFormatter;
 import org.pivxj.wallet.*;
 import org.junit.Test;
+import org.pivxj.zerocoin.GenWitMessage;
+import org.pivxj.zerocoin.LibZerocoin;
+import org.pivxj.zerocoin.PubcoinsMessage;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 import org.spongycastle.crypto.params.ECPublicKeyParameters;
@@ -32,6 +35,7 @@ import sun.applet.Main;
 import javax.annotation.Nullable;
 import java.io.*;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -53,8 +57,52 @@ import java.util.logging.SimpleFormatter;
 public class MatiTest {
 
     @Test
-    public void hash() throws UnsupportedEncodingException {
+    public void connectAndGetPubcoinsdata(){
 
+        final NetworkParameters params = MainNetParams.get();
+        PeerGroup peerGroup = new PeerGroup(params);
+        peerGroup.start();
+        Peer peer = peerGroup.connectTo(new InetSocketAddress(7776));
+
+        peer.addOnGetDataResponseEventListener(new OnGetDataResponseEventListener() {
+            @Override
+            public void onResponseReceived(PubcoinsMessage pubcoinsMessage) {
+                System.out.println("size: " + pubcoinsMessage.getList().size());
+            }
+        });
+
+        peer.addConnectedEventListener(new PeerConnectedEventListener() {
+            @Override
+            public void onPeerConnected(Peer peer, int i) {
+                System.out.println("Peer connected, seinding getdata");
+                //GetDataMessage getDataMessage = new GetDataMessage(params);
+                //getDataMessage.addPubcoinsBlockHash(
+                //        Sha256Hash.wrap("ed56ff1e1abd88e5dce0b52f8951970c86d94ec526c0007bf2bad4ca10ba3ac4")
+                //);
+                GenWitMessage genWitMessage = new GenWitMessage(
+                        params,
+                        1245475,
+                        LibZerocoin.CoinDenomination.ZQ_ONE,
+                        1, 0.001, (long) (Math.random() * Long.MAX_VALUE)
+                );
+                BigInteger bnValue = new BigInteger("49562934426197246361341302937888166535958820127560563046688232084681663408334057925442609971010765290980273589195421234926681824529604731044735511851429332795902473030281542943546216458161997423614193390428379820294894150716196038837775465627137407450997323837703190642031432725966841831797669052225113685451");
+                genWitMessage.insert(bnValue);
+                peer.sendMessage(genWitMessage);
+            }
+        });
+
+        while (true){
+            try {
+                TimeUnit.SECONDS.sleep(90);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            break;
+        }
+    }
+
+    @Test
+    public void hash() throws UnsupportedEncodingException {
         byte[] bytes = "add".getBytes("UTF-8");
         byte[] res = Hash9.digest(bytes);
         System.out.println(Hex.toHexString(res));

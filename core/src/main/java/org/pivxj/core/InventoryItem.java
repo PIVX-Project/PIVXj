@@ -43,6 +43,7 @@ public class InventoryItem {
         MasterNodeAnnounce,
         MasterNodePing,
         DarkSendTransaction,
+        Pubcoins,
 
         None,
 

@@ -81,7 +81,7 @@ public class ScriptTest {
         Script pubkey = new Script(pubkeyBytes);
         assertEquals("DUP HASH160 PUSHDATA(20)[33e81a941e64cda12c6a299ed322ddbdd03f8d0e] EQUALVERIFY CHECKSIG", pubkey.toString());
         Address toAddr = new Address(PARAMS, pubkey.getPubKeyHash());
-        assertEquals("mkFQohBpy2HDXrCwyMrYL5RtfrmeiuuPY2", toAddr.toString());
+        assertEquals("y1iJNjXtr5FkRz7Nf7BTub3vHyz4cyjR28", toAddr.toString());
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ScriptTest {
         Transaction transaction = PARAMS.getDefaultSerializer().makeTransaction(bytes);
         TransactionOutput output = transaction.getOutput(1);
         Transaction spendTx = new Transaction(PARAMS);
-        Address address = Address.fromBase58(PARAMS, "n3CFiCmBXVt5d3HXKQ15EFZyhPz4yj5F3H");
+        Address address = Address.fromBase58(PARAMS, "y4EmHcSgo7Tent6cWkehtG1QZdEmxJwMBG");
         Script outputScript = ScriptBuilder.createOutputScript(address);
         spendTx.addOutput(output.getValue(), outputScript);
         spendTx.addInput(output);

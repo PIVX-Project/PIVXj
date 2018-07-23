@@ -28,7 +28,7 @@ public class InsufficientMoneyException extends Exception {
     @Nullable
     public final Coin missing;
 
-    protected InsufficientMoneyException() {
+    public InsufficientMoneyException() {
         this.missing = null;
     }
 

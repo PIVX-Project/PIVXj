@@ -21,3 +21,5 @@ checkpoints.txt
 *.DS_Store
 *.db
 core/2.0.32_pivx-wallet-backup_org.pivx.production-2017-11-20
+*build/
+*.DS_Store

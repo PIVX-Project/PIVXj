@@ -95,6 +95,13 @@ public class CoinDefinition {
     public static final long TESTNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 201564;
     public static final long MAINNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 863787;
 
+    //high fee required for zerocoin mints
+    public static final Coin MIN_ZEROCOIN_MINT_FEE = Coin.CENT;
+    //the maximum amount of confirmations until accumulated in 19
+    public static final int MINT_REQUIRED_CONFIRMATIONS = 20;
+    //The required confirmations for a zpiv to be stakable
+    public static final int ZEROCOIN_REQUIRED_STAKE_DEPTH = 200;
+
     //
     //  Production
     //
@@ -126,7 +133,7 @@ public class CoinDefinition {
     public static int minBroadcastConnections = 3;   //0 for default; we need more peers.
 
     //
-    // TestNet - DASH
+    // TestNet - PIVX
     //
     public static final boolean supportsTestNet = true;
     public static final int testnetAddressHeader = 139;             //base58.h CBitcoinAddress::PUBKEY_ADDRESS_TEST
@@ -191,7 +198,7 @@ public class CoinDefinition {
     }
 
     //Unit Test Information
-    public static final String UNITTEST_ADDRESS = "XgxQxd6B8iYgEEryemnJrpvoWZ3149MCkK";
+    public static final String UNITTEST_ADDRESS = "DBu6Bx11S5xRoG7DxaSDg9uBGoi6X2KA8D";
     public static final String UNITTEST_ADDRESS_PRIVATE_KEY = "XDtvHyDHk4S3WJvwjxSANCpZiLLkKzoDnjrcRhca2iLQRtGEz1JZ";
 
 }

@@ -1326,7 +1326,7 @@ public class BtcFormatTest {
         /* The pattern format provided by DecimalFormat includes specification of fractional digits,
          * but we ignore that because we have alternative mechanism for specifying that.. */
         BtcFormat f = BtcFormat.builder().locale(US).scale(3).pattern("¤¤ #.0").fractionDigits(3).build();
-        assertEquals("Millicoin-format BTC #.000;BTC -#.000", f.toString());
+        assertEquals("Millicoin-format PIVX #.000;PIVX -#.000", f.toString());
         assertEquals("mBTC 1000.000", f.format(COIN));
     }
 

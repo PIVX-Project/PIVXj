@@ -46,7 +46,7 @@ public class StoredBlock {
     public static final int COMPACT_SERIALIZED_SIZE = Block.HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
     public static final int COMPACT_SERIALIZED_SIZE_ZEROCOIN = Block.ZEROCOIN_HEADER_SIZE + CHAIN_WORK_BYTES + 4;  // for height
 
-    /** Compact size (regular or zerocoin) */
+    /** Compact size (regular or protocol) */
     private int compactHeaderSize;
 
     private Block header;

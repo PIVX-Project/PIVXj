@@ -17,8 +17,8 @@
 
 package org.pivxj.core;
 
-import org.pivxj.zerocoin.GenWitMessage;
-import org.pivxj.zerocoin.PubcoinsMessage;
+import host.furszy.zerocoinj.protocol.GenWitMessage;
+import host.furszy.zerocoinj.protocol.PubcoinsMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;

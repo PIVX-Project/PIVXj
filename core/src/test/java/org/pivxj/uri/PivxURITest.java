@@ -67,8 +67,8 @@ public class PivxURITest {
         assertEquals(CoinDefinition.coinURIScheme + ":" + MAINNET_GOOD_ADDRESS + "?message=Agatha", PivxURI.convertToBitcoinURI(goodAddress, null, "", "Agatha"));
       
         // no amount, no label, no message
-        assertEquals("bitcoin:" + MAINNET_GOOD_ADDRESS, PivxURI.convertToBitcoinURI(goodAddress, null, null, null));
-        assertEquals("bitcoin:" + MAINNET_GOOD_ADDRESS, PivxURI.convertToBitcoinURI(goodAddress, null, "", ""));
+        assertEquals("pivx:" + MAINNET_GOOD_ADDRESS, PivxURI.convertToBitcoinURI(goodAddress, null, null, null));
+        assertEquals("pivx:" + MAINNET_GOOD_ADDRESS, PivxURI.convertToBitcoinURI(goodAddress, null, "", ""));
 
         // different scheme
         final NetworkParameters alternativeParameters = new MainNetParams() {
@@ -389,14 +389,14 @@ public class PivxURITest {
     @Test
     public void testMultiplePaymentProtocolReq() throws Exception {
         PivxURI uri = new PivxURI(MAINNET,
-                "bitcoin:?r=https%3A%2F%2Fbitcoincore.org%2F%7Egavin&r1=bt:112233445566");
+                "pivx:?r=https%3A%2F%2Fbitcoincore.org%2F%7Egavin&r1=bt:112233445566");
         assertEquals(ImmutableList.of("bt:112233445566", "https://bitcoincore.org/~gavin"), uri.getPaymentRequestUrls());
         assertEquals("https://bitcoincore.org/~gavin", uri.getPaymentRequestUrl());
     }
 
     @Test
     public void testNoPaymentProtocolReq() throws Exception {
-        PivxURI uri = new PivxURI(MAINNET, "bitcoin:" + MAINNET_GOOD_ADDRESS);
+        PivxURI uri = new PivxURI(MAINNET, "pivx:" + MAINNET_GOOD_ADDRESS);
         assertNull(uri.getPaymentRequestUrl());
         assertEquals(ImmutableList.of(), uri.getPaymentRequestUrls());
         assertNotNull(uri.getAddress());
@@ -405,7 +405,7 @@ public class PivxURITest {
     @Test
     public void testUnescapedPaymentProtocolReq() throws Exception {
         PivxURI uri = new PivxURI(TestNet3Params.get(),
-                "bitcoin:?r=https://merchant.com/pay.php?h%3D2a8628fc2fbe");
+                "pivx:?r=https://merchant.com/pay.php?h%3D2a8628fc2fbe");
         assertEquals("https://merchant.com/pay.php?h=2a8628fc2fbe", uri.getPaymentRequestUrl());
         assertEquals(ImmutableList.of("https://merchant.com/pay.php?h=2a8628fc2fbe"), uri.getPaymentRequestUrls());
         assertNull(uri.getAddress());

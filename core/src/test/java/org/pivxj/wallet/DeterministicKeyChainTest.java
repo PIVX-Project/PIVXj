@@ -30,6 +30,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.spongycastle.crypto.params.KeyParameter;
 
+import java.io.BufferedOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.List;
@@ -59,9 +62,9 @@ public class DeterministicKeyChainTest {
         ECKey key2 = chain.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS);
         assertFalse(key2.isPubKeyOnly());
 
-        final Address address = Address.fromBase58(UnitTestParams.get(), "n1bQNoEx8uhmCzzA5JPG6sFdtsUQhwiQJV");
+        final Address address = Address.fromBase58(UnitTestParams.get(), "xzDbaifQACV8ATmamfkHbsGBpJPYzMqNHK");
         assertEquals(address, key1.toAddress(UnitTestParams.get()));
-        assertEquals("mnHUcqUVvrfi5kAaXJDQzBb9HsWs78b42R", key2.toAddress(UnitTestParams.get()).toString());
+        assertEquals("y2vCD5c7nHvKcLpxHq85mwGiebbSdU3oNN", key2.toAddress(UnitTestParams.get()).toString());
         assertEquals(key1, chain.findKeyFromPubHash(address.getHash160()));
         assertEquals(key2, chain.findKeyFromPubKey(key2.getPubKey()));
 
@@ -70,7 +73,7 @@ public class DeterministicKeyChainTest {
 
         ECKey key3 = chain.getKey(KeyChain.KeyPurpose.CHANGE);
         assertFalse(key3.isPubKeyOnly());
-        assertEquals("mqumHgVDqNzuXNrszBmi7A2UpmwaPMx4HQ", key3.toAddress(UnitTestParams.get()).toString());
+        assertEquals("yJftHnu3LGsvtQkKmCbwZJ5iXsHvYyRJ9u", key3.toAddress(UnitTestParams.get()).toString());
         key3.sign(Sha256Hash.ZERO_HASH);
         assertFalse(key3.isPubKeyOnly());
     }
@@ -90,16 +93,16 @@ public class DeterministicKeyChainTest {
         ECKey key1 = chain1.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS);
         ECKey key2 = chain1.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS);
 
-        final Address address = Address.fromBase58(UnitTestParams.get(), "n2nHHRHs7TiZScTuVhZUkzZfTfVgGYwy6X");
+        final Address address = Address.fromBase58(UnitTestParams.get(), "yJFArTdvzWh6LkNLBStQLWBh5ni6EMeo4y");
         assertEquals(address, key1.toAddress(UnitTestParams.get()));
-        assertEquals("mnp2j9za5zMuz44vNxrJCXXhZsCdh89QXn", key2.toAddress(UnitTestParams.get()).toString());
+        assertEquals("y4GvJCLdy3LStByM4iBDn39jBzR3c5TrLv", key2.toAddress(UnitTestParams.get()).toString());
         assertEquals(key1, chain1.findKeyFromPubHash(address.getHash160()));
         assertEquals(key2, chain1.findKeyFromPubKey(key2.getPubKey()));
 
         key1.sign(Sha256Hash.ZERO_HASH);
 
         ECKey key3 = chain1.getKey(KeyChain.KeyPurpose.CHANGE);
-        assertEquals("mpjRhk13rvV7vmnszcUQVYVQzy4HLTPTQU", key3.toAddress(UnitTestParams.get()).toString());
+        assertEquals("y6CKGnM7jyTepuhJgMoL547Sd6GhCdwFNW", key3.toAddress(UnitTestParams.get()).toString());
         key3.sign(Sha256Hash.ZERO_HASH);
     }
 
@@ -124,7 +127,7 @@ public class DeterministicKeyChainTest {
         DeterministicKeyChain chain1 = new AccountOneChain(ENTROPY, "", secs);
         ECKey key1 = chain1.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS);
 
-        final Address address = Address.fromBase58(UnitTestParams.get(), "n2nHHRHs7TiZScTuVhZUkzZfTfVgGYwy6X");
+        final Address address = Address.fromBase58(UnitTestParams.get(), "yJFArTdvzWh6LkNLBStQLWBh5ni6EMeo4y");
         assertEquals(address, key1.toAddress(UnitTestParams.get()));
 
         DeterministicKey watching = chain1.getWatchingKey();
@@ -150,14 +153,14 @@ public class DeterministicKeyChainTest {
         chain1 = DeterministicKeyChain.fromProtobuf(keys, null, factory).get(0);
 
         ECKey key2 = chain1.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS);
-        assertEquals("mnp2j9za5zMuz44vNxrJCXXhZsCdh89QXn", key2.toAddress(UnitTestParams.get()).toString());
+        assertEquals("y4GvJCLdy3LStByM4iBDn39jBzR3c5TrLv", key2.toAddress(UnitTestParams.get()).toString());
         assertEquals(key1, chain1.findKeyFromPubHash(address.getHash160()));
         assertEquals(key2, chain1.findKeyFromPubKey(key2.getPubKey()));
 
         key1.sign(Sha256Hash.ZERO_HASH);
 
         ECKey key3 = chain1.getKey(KeyChain.KeyPurpose.CHANGE);
-        assertEquals("mpjRhk13rvV7vmnszcUQVYVQzy4HLTPTQU", key3.toAddress(UnitTestParams.get()).toString());
+        assertEquals("y6CKGnM7jyTepuhJgMoL547Sd6GhCdwFNW", key3.toAddress(UnitTestParams.get()).toString());
         key3.sign(Sha256Hash.ZERO_HASH);
 
         assertEquals(watching, chain1.getWatchingKey());
@@ -227,6 +230,8 @@ public class DeterministicKeyChainTest {
         int numItems =
                 1  // mnemonic/seed
               + 1  // master key
+              + 1  // purpose --> 44
+              + 1  // coin type --> 119 (PIV) or 37361148 (zPIV)
               + 1  // account key
               + 2  // ext/int parent keys
               + (chain.getLookaheadSize() + chain.getLookaheadThreshold()) * 2   // lookahead zone on each chain
@@ -324,7 +329,7 @@ public class DeterministicKeyChainTest {
         NetworkParameters params = MainNetParams.get();
         DeterministicKey watchingKey = chain.getWatchingKey();
         final String pub58 = watchingKey.serializePubB58(params);
-        assertEquals("xpub69KR9epSNBM59KLuasxMU5CyKytMJjBP5HEZ5p8YoGUCpM6cM9hqxB9DDPCpUUtqmw5duTckvPfwpoWGQUFPmRLpxs5jYiTf2u6xRMcdhDf", pub58);
+        assertEquals("ToEA6op3hsW2FrVQapzP22mYRxswzchMryhv4MQn7VDbwBjNrjw6M8La2nPxwgrrLG6G3ZgfqE8uuuxcZHxo19sU1WjXN3Ft5n7HaGujx1U6zNy", pub58);
         watchingKey = DeterministicKey.deserializeB58(null, pub58, params);
         watchingKey.setCreationTimeSeconds(100000);
         chain = DeterministicKeyChain.watch(watchingKey);
@@ -353,7 +358,7 @@ public class DeterministicKeyChainTest {
 
     @Test(expected = IllegalStateException.class)
     public void watchingCannotEncrypt() throws Exception {
-        final DeterministicKey accountKey = chain.getKeyByPath(DeterministicKeyChain.ACCOUNT_ZERO_PATH);
+        final DeterministicKey accountKey = chain.getKeyByPath(DeterministicKeyChain.BIP44_ACCOUNT_ZERO_PATH);
         chain = DeterministicKeyChain.watch(accountKey.dropPrivateBytes().dropParent());
         chain = chain.toEncrypted("this doesn't make any sense");
     }

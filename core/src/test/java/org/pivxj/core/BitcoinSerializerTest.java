@@ -29,6 +29,9 @@ import java.util.Arrays;
 import static org.pivxj.core.Utils.HEX;
 import static org.junit.Assert.*;
 
+/**
+ * TODO: FIXME
+ */
 public class BitcoinSerializerTest {
     private static final byte[] ADDRESS_MESSAGE_BYTES = HEX.decode("f9beb4d96164647200000000000000001f000000" +
             "ed52399b01e215104d010000000000000000000000000000000000ffff0a000001208d");

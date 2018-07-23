@@ -14,6 +14,7 @@
 
 package org.pivxj.core;
 
+import com.zerocoinj.core.context.ZerocoinContext;
 import org.pivxj.core.listeners.BlockChainListener;
 import org.pivxj.store.FlatDB;
 import org.pivxj.store.HashStore;
@@ -49,6 +50,8 @@ import static com.google.common.base.Preconditions.*;
  */
 public class Context {
     private static final Logger log = LoggerFactory.getLogger(Context.class);
+
+    public ZerocoinContext zerocoinContext = new ZerocoinContext();
 
     private TxConfidenceTable confidenceTable;
     private NetworkParameters params;

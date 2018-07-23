@@ -17,6 +17,7 @@
 
 package org.pivxj.core;
 
+import com.zerocoinj.core.CoinDenomination;
 import org.pivxj.script.Script;
 import org.pivxj.wallet.DefaultRiskAnalysis;
 import org.pivxj.wallet.KeyBag;
@@ -24,7 +25,6 @@ import org.pivxj.wallet.RedeemData;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import org.pivxj.zerocoin.LibZerocoin;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -157,7 +157,7 @@ public class TransactionInput extends ChildMessage {
         // Check for zcspend/zcmint
         if (ret){
             try {
-                LibZerocoin.CoinDenomination.fromValue((int) sequence);
+                CoinDenomination.fromValue((int) sequence);
                 return false;
             }catch (Exception e){
                 // Nothing..
@@ -167,12 +167,12 @@ public class TransactionInput extends ChildMessage {
     }
 
     /**
-     * Check for zerocoin spend
+     * Check for protocol spend
      * @return
      */
     public boolean isZcspend() {
         try {
-            LibZerocoin.CoinDenomination.fromValue((int) sequence);
+            CoinDenomination.fromValue((int) sequence);
             return true;
         }catch (Exception e){
             // Nothing..

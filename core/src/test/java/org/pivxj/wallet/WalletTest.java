@@ -421,7 +421,7 @@ public class WalletTest extends TestWithWallet {
         t.getInputs().get(0).verify();
     }
 
-    private static void broadcastAndCommit(Wallet wallet, Transaction t) throws Exception {
+    public static void broadcastAndCommit(Wallet wallet, Transaction t) throws Exception {
         final LinkedList<Transaction> txns = Lists.newLinkedList();
         wallet.addCoinsSentEventListener(new WalletCoinsSentEventListener() {
             @Override

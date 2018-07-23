@@ -23,6 +23,8 @@ import org.pivxj.wallet.DeterministicKeyChain;
 import org.junit.*;
 import org.spongycastle.crypto.params.*;
 
+import java.util.Arrays;
+
 import static org.pivxj.core.Utils.*;
 import static org.junit.Assert.*;
 
@@ -192,13 +194,13 @@ public class ChildKeyDerivationTest {
         NetworkParameters params = MainNetParams.get();
         String pub58 = key1.serializePubB58(params);
         String priv58 = key1.serializePrivB58(params);
-        assertEquals("xpub661MyMwAqRbcF7mq7Aejj5xZNzFfgi3ABamE9FedDHVmViSzSxYTgAQGcATDo2J821q7Y9EAagjg5EP3L7uBZk11PxZU3hikL59dexfLkz3", pub58);
-        assertEquals("xprv9s21ZrQH143K2dhN197jMx1ppxRBHFKJpMqdLsF1ewxncv7quRED8N5nksxphju3W7naj1arF56L5PUEWfuSk8h73Sb2uh7bSwyXNrjzhAZ", priv58);
+        assertEquals("ToEA6epvY6iUs9r4QK25EVkWZAfakbR9JVwo27BroepgBsXqnJX9nGx9cXhHJVRzAixPvD8jeLYTcLyr29UJZb5dcfjYrdpSA6PnfvvRcmw3s6A", pub58);
+        assertEquals("TDt9EWvD5T5T44hAZqFk1Lhxi1SQug8aSwXa6n7Tmx4pY2osfyWW5P8YgM1fFJm2ZwSPaB1Q1ca9BNbnEqGSjKE37uZ1UAmdAbH8Pz3o8givbMJ", priv58);
         params = TestNet3Params.get();
         pub58 = key1.serializePubB58(params);
         priv58 = key1.serializePrivB58(params);
-        assertEquals("tpubD6NzVbkrYhZ4WuxgZMdpw1Hvi7MKg6YDjDMXVohmZCFfF17hXBPYpc56rCY1KXFMovN29ik37nZimQseiykRTBTJTZJmjENyv2k3R12BJ1M", pub58);
-        assertEquals("tprv8ZgxMBicQKsPdSvtfhyEXbdp95qPWmMK9ukkDHfU8vTGQWrvtnZxe7TEg48Ui7HMsZKMj7CcQRg8YF1ydtFPZBxha5oLa3qeN3iwpYhHPVZ", priv58);
+        assertEquals("DRKVrRjogj3bNiLD8TTSAJ8NXmmvsnv9zTBWhogszZURcCGQqj6fyBzqcuyMZfHHSqz3S1oVbSteVmPVtB7cDU36EtHyznQimtD2inxjCvP4Vj3Y", pub58);
+        assertEquals("DRKPuUWy7gEYo13wzMuasNTFjT8FQVCsDL5nT3VXW8Te19NEfjrWFboHBp9HJHxE1PZS6k7SurTmKuLvyGoPGfVrpo7ti9JUswujSqRjkVnrS7hK", priv58);
     }
 
     @Test
@@ -215,10 +217,11 @@ public class ChildKeyDerivationTest {
             final String priv58 = key1.serializePrivB58(params);
             final byte[] pub = key1.serializePublic(params);
             final byte[] priv = key1.serializePrivate(params);
-            assertEquals("xpub661MyMwAqRbcF7mq7Aejj5xZNzFfgi3ABamE9FedDHVmViSzSxYTgAQGcATDo2J821q7Y9EAagjg5EP3L7uBZk11PxZU3hikL59dexfLkz3", pub58);
-            assertEquals("xprv9s21ZrQH143K2dhN197jMx1ppxRBHFKJpMqdLsF1ewxncv7quRED8N5nksxphju3W7naj1arF56L5PUEWfuSk8h73Sb2uh7bSwyXNrjzhAZ", priv58);
-            assertArrayEquals(new byte[]{4, -120, -78, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 57, -68, 93, -104, -97, 31, -105, -18, 109, 112, 104, 45, -77, -77, 18, 85, -29, -120, 86, -113, 26, 48, -18, -79, -110, -6, -27, 87, 86, 24, 124, 99, 3, 96, -33, -14, 67, -19, -47, 16, 76, -49, -11, -30, -123, 7, 56, 101, 91, 74, 125, -127, 61, 42, -103, 90, -93, 66, -36, 2, -126, -107, 30, 24, -111}, pub);
-            assertArrayEquals(new byte[]{4, -120, -83, -28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 57, -68, 93, -104, -97, 31, -105, -18, 109, 112, 104, 45, -77, -77, 18, 85, -29, -120, 86, -113, 26, 48, -18, -79, -110, -6, -27, 87, 86, 24, 124, 99, 0, -96, -75, 47, 90, -49, 92, -74, 92, -128, -125, 23, 38, -10, 97, -66, -19, 50, -112, 30, -111, -57, -124, 118, -86, 126, -35, -4, -51, 19, 109, 67, 116}, priv);
+            assertEquals("ToEA6epvY6iUs9r4QK25EVkWZAfakbR9JVwo27BroepgBsXqnJX9nGx9cXhHJVRzAixPvD8jeLYTcLyr29UJZb5dcfjYrdpSA6PnfvvRcmw3s6A", pub58);
+            assertEquals("TDt9EWvD5T5T44hAZqFk1Lhxi1SQug8aSwXa6n7Tmx4pY2osfyWW5P8YgM1fFJm2ZwSPaB1Q1ca9BNbnEqGSjKE37uZ1UAmdAbH8Pz3o8givbMJ", priv58);
+            System.out.println(Arrays.toString(priv));
+            assertArrayEquals(new byte[]{2, 45, 37, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 57, -68, 93, -104, -97, 31, -105, -18, 109, 112, 104, 45, -77, -77, 18, 85, -29, -120, 86, -113, 26, 48, -18, -79, -110, -6, -27, 87, 86, 24, 124, 99, 3, 96, -33, -14, 67, -19, -47, 16, 76, -49, -11, -30, -123, 7, 56, 101, 91, 74, 125, -127, 61, 42, -103, 90, -93, 66, -36, 2, -126, -107, 30, 24, -111}, pub);
+            assertArrayEquals(new byte[]{2, 33, 49, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 57, -68, 93, -104, -97, 31, -105, -18, 109, 112, 104, 45, -77, -77, 18, 85, -29, -120, 86, -113, 26, 48, -18, -79, -110, -6, -27, 87, 86, 24, 124, 99, 0, -96, -75, 47, 90, -49, 92, -74, 92, -128, -125, 23, 38, -10, 97, -66, -19, 50, -112, 30, -111, -57, -124, 118, -86, 126, -35, -4, -51, 19, 109, 67, 116}, priv);
             assertEquals(DeterministicKey.deserializeB58(null, priv58, params), key1);
             assertEquals(DeterministicKey.deserializeB58(priv58, params), key1);
             assertEquals(DeterministicKey.deserializeB58(null, pub58, params).getPubKeyPoint(), key1.getPubKeyPoint());
@@ -250,7 +253,7 @@ public class ChildKeyDerivationTest {
         assertEquals(key4.getPath().size(), 3);
         assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), key3,DeterministicKeyChain.KeyChainType.BIP32).getPath().size(), 3);
         assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), null,DeterministicKeyChain.KeyChainType.BIP32).getPath().size(), 1);
-        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params)).getPath().size(), 1);
+        assertEquals(DeterministicKey.deserialize(params, key4.serializePrivate(params), DeterministicKeyChain.KeyChainType.BIP32).getPath().size(), 1);
     }
 
     /** Reserializing a deserialized key should yield the original input */

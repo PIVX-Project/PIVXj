@@ -23,6 +23,7 @@ import com.google.common.collect.*;
 import com.google.common.primitives.*;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.*;
+import com.zerocoinj.core.ZCoin;
 import net.jcip.annotations.*;
 import org.pivxj.core.*;
 import org.pivxj.core.Message;
@@ -42,6 +43,7 @@ import org.pivxj.wallet.listeners.WalletCoinsSentEventListener;
 import org.pivxj.wallet.listeners.WalletEventListener;
 import org.pivxj.wallet.listeners.WalletReorganizeEventListener;
 import org.slf4j.*;
+import org.spongycastle.crypto.Commitment;
 import org.spongycastle.crypto.params.*;
 
 import javax.annotation.*;
@@ -307,7 +309,7 @@ public class Wallet extends BaseTaggableObject
         if (this.keyChainGroup.numKeys() == 0)
             this.keyChainGroup.createAndActivateNewHDChain();
         // wallet version 1 if the key chain is a bip44
-        //this.version = this.keyChainGroup.getActiveKeyChain().getKeyChainType() == DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY? 1 : 0;
+        //this.version = this.keyChainGroup.getActiveKeyChain().getKeyChainType() == DeterministicKeyChain.KeyChainType.BIP44_PIV? 1 : 0;
         watchedScripts = Sets.newHashSet();
         unspent = new HashMap<Sha256Hash, Transaction>();
         spent = new HashMap<Sha256Hash, Transaction>();
@@ -470,6 +472,30 @@ public class Wallet extends BaseTaggableObject
         // and that's not quite so important, so we could coalesce for more performance.
         saveNow();
         return keys;
+    }
+
+    /**
+     *
+     * @param purpose
+     * @param numberOfKeys
+     * @return
+     */
+    public List<ZCoin> freshZcoins(KeyChain.KeyPurpose purpose, int numberOfKeys) {
+        List<ZCoin> keysCommitments = new ArrayList<>();
+        List<DeterministicKey> keys;
+        keyChainGroupLock.lock();
+        try {
+            keys = keyChainGroup.freshKeys(purpose, numberOfKeys);
+            for (DeterministicKey key : keys) {
+                keysCommitments.add(keyChainGroup.getZcoinsAssociated(key));
+            }
+        } finally {
+            keyChainGroupLock.unlock();
+        }
+        // Do we really need an immediate hard save? Arguably all this is doing is saving the 'current' key
+        // and that's not quite so important, so we could coalesce for more performance.
+        saveNow();
+        return keysCommitments;
     }
 
     /**
@@ -3990,8 +4016,12 @@ public class Wallet extends BaseTaggableObject
             checkArgument(!req.completed, "Given SendRequest has already been completed.");
             // Calculate the amount of value we need to import.
             Coin value = Coin.ZERO;
+            int zcMintAmount = 0;
             for (TransactionOutput output : req.tx.getOutputs()) {
                 value = value.add(output.getValue());
+                if (output.isZcMint()){
+                    zcMintAmount++;
+                }
             }
 
             log.info("Completing send tx with {} outputs totalling {} (not including fees)",
@@ -4031,7 +4061,7 @@ public class Wallet extends BaseTaggableObject
             TransactionOutput bestChangeOutput = null;
             if (!req.emptyWallet) {
                 // This can throw InsufficientMoneyException.
-                FeeCalculation feeCalculation = calculateFee(req, value, originalInputs, req.ensureMinRequiredFee, candidates);
+                FeeCalculation feeCalculation = calculateFee(req, value, originalInputs, req.ensureMinRequiredFee, candidates, zcMintAmount);
                 bestCoinSelection = feeCalculation.bestCoinSelection;
                 bestChangeOutput = feeCalculation.bestChangeOutput;
             } else {
@@ -4888,7 +4918,7 @@ public class Wallet extends BaseTaggableObject
     //region Fee calculation code
 
     public FeeCalculation calculateFee(SendRequest req, Coin value, List<TransactionInput> originalInputs,
-                                       boolean needAtLeastReferenceFee, List<TransactionOutput> candidates) throws InsufficientMoneyException {
+                                       boolean needAtLeastReferenceFee, List<TransactionOutput> candidates, int amountOfZcMints) throws InsufficientMoneyException {
         checkState(lock.isHeldByCurrentThread());
         // There are 3 possibilities for what adding change might do:
         // 1) No effect
@@ -4918,6 +4948,10 @@ public class Wallet extends BaseTaggableObject
             //PIVX instantSend
             if(req.useInstantSend) {
                 fees = Coin.valueOf(max(TransactionLockRequest.MIN_FEE.getValue(), TransactionLockRequest.MIN_FEE.multiply(lastCalculatedInputs).getValue()));
+            }
+            // Zc fee
+            if(amountOfZcMints > 0){
+                fees = CoinDefinition.MIN_ZEROCOIN_MINT_FEE.times(amountOfZcMints);
             }
 
             valueNeeded = value.add(fees);

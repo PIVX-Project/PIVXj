@@ -17,20 +17,21 @@
 
 package org.pivxj.wallet;
 
-import com.google.common.collect.Lists;
-import org.pivxj.core.BloomFilter;
-import org.pivxj.core.ECKey;
-import org.pivxj.core.NetworkParameters;
-import org.pivxj.core.Utils;
+import com.google.common.collect.*;
+import com.hashengineering.crypto.Sha512Hash;
+import com.zerocoinj.core.CoinDenomination;
+import com.zerocoinj.core.Commitment;
+import com.zerocoinj.core.HashWriter;
+import com.zerocoinj.core.ZCoin;
+import com.zerocoinj.core.context.ZerocoinContext;
+import com.zerocoinj.core.exceptions.InvalidSerialException;
+import org.pivxj.core.*;
 import org.pivxj.crypto.*;
 import org.pivxj.script.Script;
 import org.pivxj.utils.Threading;
 import org.pivxj.wallet.listeners.KeyChainEventListener;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,8 +125,12 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     // PIVX BIP44
     public static final ChildNumber BIP44_MASTER_KEY = new ChildNumber(44, true);
     public static final ChildNumber PIVX_PATH = new ChildNumber(119,true);
+    public static final ChildNumber ZPIVX_PATH = new ChildNumber(37361148,true);
     public static final ImmutableList<ChildNumber> BIP44_ACCOUNT_ZERO_PATH =
             ImmutableList.of(BIP44_MASTER_KEY, PIVX_PATH, ChildNumber.ZERO_HARDENED);
+
+    public static final ImmutableList<ChildNumber> BIP44_ACCOUNT_ZERO_PATH_ZPIV =
+            ImmutableList.of(BIP44_MASTER_KEY, ZPIVX_PATH, ChildNumber.ZERO_HARDENED);
 
     // We try to ensure we have at least this many keys ready and waiting to be handed out via getKey().
     // See docs for getLookaheadSize() for more info on what this is for. The -1 value means it hasn't been calculated
@@ -166,13 +171,15 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     // and always 1 for other transaction types
     protected int sigsRequiredToSpend = 1;
     // Key Chain type to support bip32 or bip44
-    private KeyChainType keyChainType = KeyChainType.BIP44_PIVX_ONLY;
+    private KeyChainType keyChainType = KeyChainType.BIP44_PIV;
 
     // Key Chain version to support BIP44 fixed without refactor this code too much
-    public static enum KeyChainType{
-        BIP32,BIP44_PIVX_ONLY
+    public enum KeyChainType{
+        BIP32, BIP44_PIV, BIP44_ZPIV
     }
 
+    // Coins associated with keys
+    private final Map<DeterministicKey, ZCoin> zcoins = Maps.newHashMap();
 
 
     public static class Builder<T extends Builder<T>> {
@@ -267,7 +274,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 chain = new DeterministicKeyChain(seed);
             } else {
                 watchingKey.setCreationTimeSeconds(seedCreationTimeSecs);
-                chain = new DeterministicKeyChain(watchingKey,KeyChainType.BIP44_PIVX_ONLY);
+                chain = new DeterministicKeyChain(watchingKey,KeyChainType.BIP44_PIV);
             }
 
             return chain;
@@ -330,7 +337,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * if the starting seed is the same.
      */
     protected DeterministicKeyChain(DeterministicSeed seed) {
-        this(seed, null,KeyChainType.BIP44_PIVX_ONLY);
+        this(seed, null,KeyChainType.BIP44_PIV);
     }
 
     /**
@@ -341,7 +348,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     public DeterministicKeyChain(DeterministicKey watchingKey,KeyChainType keyChainType) {
         this.keyChainType = keyChainType;
         checkArgument(watchingKey.isPubKeyOnly(), "Private subtrees not currently supported: if you got this key from DKC.getWatchingKey() then use .dropPrivate().dropParent() on it first.");
-        if (keyChainType != KeyChainType.BIP44_PIVX_ONLY)
+        if (keyChainType != KeyChainType.BIP44_PIV)
             checkArgument( watchingKey.getPath().size() == getAccountPath().size(), "You can only watch an account key currently");
         basicKeyChain = new BasicKeyChain();
         this.seed = null;
@@ -357,7 +364,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * <p>Watch key has to be an account key.</p>
      */
     protected DeterministicKeyChain(DeterministicKey watchKey, boolean isFollowing) {
-        this(watchKey,KeyChainType.BIP44_PIVX_ONLY);
+        this(watchKey,KeyChainType.BIP44_PIV);
         this.isFollowing = isFollowing;
     }
 
@@ -374,7 +381,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
      * Creates a key chain that watches the given account key.
      */
     public static DeterministicKeyChain watch(DeterministicKey accountKey) {
-        return new DeterministicKeyChain(accountKey,KeyChainType.BIP44_PIVX_ONLY);
+        return new DeterministicKeyChain(accountKey,KeyChainType.BIP44_PIV);
     }
 
     /**
@@ -482,10 +489,12 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         switch (keyChainType){
             case BIP32:
                 return ACCOUNT_ZERO_PATH;
-            case BIP44_PIVX_ONLY:
+            case BIP44_PIV:
                 return BIP44_ACCOUNT_ZERO_PATH;
+            case BIP44_ZPIV:
+                return BIP44_ACCOUNT_ZERO_PATH_ZPIV;
             default:
-                throw new IllegalStateException("Uknown keyChainType");
+                throw new IllegalStateException("Unknown keyChainType");
         }
     }
 
@@ -505,7 +514,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     // Derives the account path keys and inserts them into the basic key chain. This is important to preserve their
     // order for serialization, amongst other things.
     private void initializeHierarchyUnencrypted(DeterministicKey baseKey) {
-        if (baseKey.isPubKeyOnly() && keyChainType == KeyChainType.BIP44_PIVX_ONLY){
+        if (baseKey.isPubKeyOnly() &&  (keyChainType == KeyChainType.BIP44_PIV || keyChainType == KeyChainType.BIP44_ZPIV )){
             externalParentKey = baseKey;
             internalParentKey = baseKey;
             addToBasicChain(externalParentKey);
@@ -709,7 +718,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     public DeterministicKey getWatchingKey() {
         List<ChildNumber> childNumbers = Lists.newArrayList(getAccountPath());
         // first account only
-        if (keyChainType == KeyChainType.BIP44_PIVX_ONLY){
+        if (keyChainType == KeyChainType.BIP44_PIV || keyChainType == KeyChainType.BIP44_ZPIV){
             childNumbers.add(ChildNumber.ZERO);
         }
         return getKeyByPath(childNumbers,true);
@@ -866,16 +875,28 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         int sigsRequiredToSpend = 1;
 
         // Determine KeyChainType
-        KeyChainType keyChainType = KeyChainType.BIP44_PIVX_ONLY;
+        KeyChainType keyChainType = KeyChainType.BIP44_PIV;
         // Quick loop to see if the first key correspond to a BIP44 path.
+        boolean checkNext = false;
         for (Protos.Key key : keys) {
             // Deserialize the path through the tree.
             LinkedList<ChildNumber> path = newLinkedList();
             for (int i : key.getDeterministicKey().getPathList())
                 path.add(new ChildNumber(i));
-            if (!path.isEmpty() && path.get(0).equals(BIP44_MASTER_KEY)){
-                // is BIP44
-                keyChainType = KeyChainType.BIP44_PIVX_ONLY;
+
+            if (!checkNext) {
+                if (!path.isEmpty() && path.get(0).equals(BIP44_MASTER_KEY)) {
+                    // is BIP44
+                    checkNext = true;
+                    continue;
+                }
+            }else {
+                ChildNumber coinType = path.get(1);
+                if (coinType.equals(PIVX_PATH)) {
+                    keyChainType = KeyChainType.BIP44_PIV;
+                } else if (coinType.equals(ZPIVX_PATH)) {
+                    keyChainType = KeyChainType.BIP44_ZPIV;
+                }
                 break;
             }
         }
@@ -1049,7 +1070,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
 
     @Override
     public DeterministicKeyChain toEncrypted(KeyCrypter keyCrypter, KeyParameter aesKey) {
-        return toEncrypted(keyCrypter,aesKey,KeyChainType.BIP44_PIVX_ONLY);
+        return toEncrypted(keyCrypter,aesKey,KeyChainType.BIP44_PIV);
     }
 
     public DeterministicKeyChain toEncrypted(KeyCrypter keyCrypter, KeyParameter aesKey, KeyChainType keyChainType) {
@@ -1261,8 +1282,9 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         if (needed <= lookaheadThreshold)
             return new ArrayList<DeterministicKey>();
 
-        log.info("{} keys needed for {} = {} issued + {} lookahead size + {} lookahead threshold - {} num children",
-                needed, parent.getPathAsString(), issued, lookaheadSize, lookaheadThreshold, numChildren);
+        boolean createZcoins = keyChainType == KeyChainType.BIP44_ZPIV;
+        log.info("{} keys needed for {} = {} issued + {} lookahead size + {} lookahead threshold - {} num children - Zcoins flag {} ",
+                needed, parent.getPathAsString(), issued, lookaheadSize, lookaheadThreshold, numChildren, createZcoins);
 
         List<DeterministicKey> result  = new ArrayList<DeterministicKey>(needed);
         final Stopwatch watch = Stopwatch.createStarted();
@@ -1273,10 +1295,50 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
             hierarchy.putKey(key);
             result.add(key);
             nextChild = key.getChildNumber().num() + 1;
+            // zcoin TODO: Check this.. the map is not well..
+            if (createZcoins){
+                try{
+                    generateZcoin(key);
+                } catch (InvalidSerialException e) {
+                    log.info("invalid serial",e);
+                }
+            }
         }
         watch.stop();
         log.info("Took {}", watch);
         return result;
+    }
+
+    private void generateZcoin(DeterministicKey key) throws InvalidSerialException {
+        ZerocoinContext context = Context.get().zerocoinContext;
+        Sha256Hash trimmedRandomness = Sha256Hash.twiceOf(key.getPrivKeyBytes()); // Here the core is using a Sha512..
+        BigInteger randomness = HashWriter.toUint256(trimmedRandomness.getReversedBytes()).mod(context.coinCommitmentGroup.getGroupOrder());
+        BigInteger serial =  ZCoin.generateSerial(key);
+        Commitment commitment = new Commitment(serial, randomness, context.coinCommitmentGroup);
+
+        BigInteger attempts = BigInteger.ZERO;
+        while (!ZCoin.isCoinValueValid(context, commitment.getCommitmentValue())){
+            attempts = attempts.add(BigInteger.ONE);
+            byte[] seed = trimmedRandomness.getReversedBytes();
+            byte[] r = Utils.serializeBigInteger(attempts);
+            randomness =
+                    HashWriter.toUint256(
+                            Sha256Hash.hashTwice(
+                                seed, 0, seed.length,
+                                r, 0, r.length
+                            )
+                    ).mod(context.coinCommitmentGroup.getGroupOrder());
+            commitment = new Commitment(serial, randomness, context.coinCommitmentGroup);
+        }
+
+        zcoins.put(
+                key, ZCoin.mintCoinH(
+                        Context.get().zerocoinContext,
+                        key,
+                        CoinDenomination.ZQ_ERROR,
+                        commitment
+                )
+        );
     }
 
     /** Housekeeping call to call when lookahead might be needed.  Normally called automatically by KeychainGroup. */
@@ -1410,6 +1472,10 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     /** Get redeem data for a key.  Only applicable to married keychains. */
     public RedeemData getRedeemData(DeterministicKey followedKey) {
         throw new UnsupportedOperationException();
+    }
+
+    public ZCoin getZcoinsAssociated(DeterministicKey key) {
+        return zcoins.get(key);
     }
 
     /** Create a new key and return the matching output script.  Only applicable to married keychains. */

@@ -505,7 +505,7 @@ public class DeterministicKey extends ECKey {
       *  @throws IllegalArgumentException if the base58 encoded key could not be parsed.
       */
     public static DeterministicKey deserializeB58(@Nullable DeterministicKey parent, String base58, NetworkParameters params) {
-        return deserialize(params, Base58.decodeChecked(base58), parent, DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY);
+        return deserialize(params, Base58.decodeChecked(base58), parent, DeterministicKeyChain.KeyChainType.BIP44_PIV);
     }
 
     public static DeterministicKey deserializeB58(@Nullable DeterministicKey parent, String base58, NetworkParameters params, DeterministicKeyChain.KeyChainType keyChainType) {
@@ -516,7 +516,14 @@ public class DeterministicKey extends ECKey {
       * Deserialize an HD Key with no parent
       */
     public static DeterministicKey deserialize(NetworkParameters params, byte[] serializedKey) {
-        return deserialize(params, serializedKey, null, DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY);
+        return deserialize(params, serializedKey, null, DeterministicKeyChain.KeyChainType.BIP44_PIV);
+    }
+
+    /**
+     * Deserialize an HD Key with no parent
+     */
+    public static DeterministicKey deserialize(NetworkParameters params, byte[] serializedKey, DeterministicKeyChain.KeyChainType keyChainType) {
+        return deserialize(params, serializedKey, null, keyChainType);
     }
 
     /**
@@ -548,7 +555,7 @@ public class DeterministicKey extends ECKey {
                 // This can happen when deserializing an account key for a watching wallet.  In this case, we assume that
                 // the client wants to conceal the key's position in the hierarchy.  The path is truncated at the
                 // parent's node.
-                if (keyChainType == DeterministicKeyChain.KeyChainType.BIP44_PIVX_ONLY){
+                if (keyChainType == DeterministicKeyChain.KeyChainType.BIP44_PIV){
                     // this is for bip44 only
                     path = HDUtils.append(DeterministicKeyChain.BIP44_ACCOUNT_ZERO_PATH,childNumber);
                 }else

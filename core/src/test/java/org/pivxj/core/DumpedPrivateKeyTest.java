@@ -35,12 +35,12 @@ public class DumpedPrivateKeyTest {
 
     @Test
     public void checkNetwork() throws Exception {
-        DumpedPrivateKey.fromBase58(MAINNET, "5HtUCLMFWNueqN9unpgX2DzjMg6SDNZyKRb8s3LJgpFg5ubuMrk");
+        DumpedPrivateKey.fromBase58(MAINNET, "YQsMtn5eGmNsn8GpUH7r8JRsPW2unPjNZ8AGAjX7uXGUzuN2SzCQ");
     }
 
     @Test(expected = WrongNetworkException.class)
     public void checkNetworkWrong() throws Exception {
-        DumpedPrivateKey.fromBase58(TESTNET, "5HtUCLMFWNueqN9unpgX2DzjMg6SDNZyKRb8s3LJgpFg5ubuMrk");
+        DumpedPrivateKey.fromBase58(TESTNET, "YQsMtn5eGmNsn8GpUH7r8JRsPW2unPjNZ8AGAjX7uXGUzuN2SzCQ");
     }
 
     @Test
@@ -66,7 +66,7 @@ public class DumpedPrivateKeyTest {
 
     @Test
     public void roundtripBase58() throws Exception {
-        String base58 = "5HtUCLMFWNueqN9unpgX2DzjMg6SDNZyKRb8s3LJgpFg5ubuMrk";
+        String base58 = "YQsMtn5eGmNsn8GpUH7r8JRsPW2unPjNZ8AGAjX7uXGUzuN2SzCQ";
         assertEquals(base58, DumpedPrivateKey.fromBase58(null, base58).toBase58());
     }
 }

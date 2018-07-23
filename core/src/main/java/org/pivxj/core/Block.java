@@ -305,9 +305,9 @@ public class Block extends Message {
                 //System.out.println("payload size: "+payload.length);
                 //System.out.println("Hash payload "+Arrays.toString(copy));
                // hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(copy));
-               // System.out.println("zerocoin hash parsed: "+hash.toString());
+               // System.out.println("protocol hash parsed: "+hash.toString());
                 hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
-                //System.out.println("zerocoin test hash parsed 2: "+hash.toString());
+                //System.out.println("protocol test hash parsed 2: "+hash.toString());
 
                 //hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
             } else {

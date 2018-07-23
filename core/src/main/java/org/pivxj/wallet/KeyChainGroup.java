@@ -19,12 +19,14 @@ package org.pivxj.wallet;
 
 import com.google.common.collect.*;
 import com.google.protobuf.*;
+import com.zerocoinj.core.ZCoin;
 import org.pivxj.core.*;
 import org.pivxj.crypto.*;
 import org.pivxj.script.*;
 import org.pivxj.utils.*;
 import org.pivxj.wallet.listeners.KeyChainEventListener;
 import org.slf4j.*;
+import org.spongycastle.crypto.Commitment;
 import org.spongycastle.crypto.params.*;
 
 import javax.annotation.*;
@@ -265,6 +267,15 @@ public class KeyChainGroup implements KeyBag {
             createAndActivateNewHDChain();
         }
         return chains.get(chains.size() - 1);
+    }
+
+    /**
+     *
+     * @param key
+     * @return
+     */
+    public ZCoin getZcoinsAssociated(DeterministicKey key) {
+        return getActiveKeyChain().getZcoinsAssociated(key);
     }
 
     /**
@@ -827,4 +838,5 @@ public class KeyChainGroup implements KeyBag {
             epoch += chain.getKeyLookaheadEpoch();
         return epoch;
     }
+
 }

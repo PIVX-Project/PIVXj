@@ -323,8 +323,11 @@ public class TransactionOutput extends ChildMessage {
             if (script.isSentToRawPubKey()) {
                 byte[] pubkey = script.getPubKey();
                 return transactionBag.isPubKeyMine(pubkey);
-            } if (script.isPayToScriptHash()) {
+            }else if (script.isPayToScriptHash()) {
                 return transactionBag.isPayToScriptHashMine(script.getPubKeyHash());
+            } else if (script.isZcMint() || script.isZcSpend()){
+                // TODO: Check if this method is right or i should create a new one..
+                return transactionBag.isWatchedScript(script);
             } else {
                 byte[] pubkeyHash = script.getPubKeyHash();
                 return transactionBag.isPubKeyHashMine(pubkeyHash);
@@ -426,5 +429,9 @@ public class TransactionOutput extends ChildMessage {
     @Override
     public int hashCode() {
         return Objects.hashCode(value, parent, Arrays.hashCode(scriptBytes));
+    }
+
+    public boolean isZcMint() {
+        return getScriptPubKey().isZcMint();
     }
 }

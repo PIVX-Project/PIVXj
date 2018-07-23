@@ -161,7 +161,7 @@ public class ScriptOpCodes {
     public static final int OP_NOP10 = 0xb9;
     public static final int OP_INVALIDOPCODE = 0xff;
 
-    // zerocoin
+    // protocol
     public static final int OP_ZEROCOINMINT = 0xc1;
     public static final int OP_ZEROCOINSPEND = 0xc2;
 

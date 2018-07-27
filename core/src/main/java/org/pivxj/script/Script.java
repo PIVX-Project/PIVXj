@@ -312,6 +312,16 @@ public class Script {
     }
 
     /**
+     *
+     */
+    public BigInteger getCommitmentValue() {
+        if (chunks.size() != 3) {
+            throw new ScriptException("Script not of right size, expecting 2 but got " + chunks.size());
+        }
+        return Utils.unserializeBiginteger(chunks.get(2).data);
+    }
+
+    /**
      * Retrieves the sender public key from a LOCKTIMEVERIFY transaction
      * @return
      * @throws ScriptException

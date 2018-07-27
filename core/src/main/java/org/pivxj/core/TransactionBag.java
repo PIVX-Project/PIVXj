@@ -31,6 +31,9 @@ public interface TransactionBag {
     /** Returns true if this wallet is watching transactions for outputs with the script. */
     boolean isWatchedScript(Script script);
 
+    /** Returns true if this wallet is watching transactions for outputs with the zc commitment value. */
+    boolean isZcOutputMine(Script script);
+
     /** Returns true if this wallet contains a keypair with the given public key. */
     boolean isPubKeyMine(byte[] pubkey);
 
@@ -39,4 +42,5 @@ public interface TransactionBag {
 
     /** Returns transactions from a specific pool. */
     Map<Sha256Hash, Transaction> getTransactionPool(WalletTransaction.Pool pool);
+
 }

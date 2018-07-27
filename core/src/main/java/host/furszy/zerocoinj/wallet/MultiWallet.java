@@ -43,6 +43,8 @@ public class MultiWallet{
         if (isZcMint){
             pivWallet.commitTx(tx);
             zWallet.commitTx(tx);
+        }else {
+            pivWallet.commitTx(tx);
         }
 
     }

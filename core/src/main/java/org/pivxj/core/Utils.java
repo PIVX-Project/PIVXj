@@ -26,6 +26,7 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.UnsignedLongs;
 import org.spongycastle.crypto.digests.RIPEMD160Digest;
+import org.spongycastle.util.encoders.Hex;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -243,6 +244,12 @@ public class Utils {
         buf.write(new VarInt(num.length).encode());
         buf.write(num);
     }
+
+    public static BigInteger unserializeBiginteger(byte[] buf) {
+        return Utils.decodeMPI(Utils.reverseBytes(buf),false);
+    }
+
+
     /**
      * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
      * a 4 byte big endian length field, followed by the stated number of bytes representing
@@ -625,6 +632,10 @@ public class Utils {
             isAndroid = (runtime != null && runtime.equals("Android Runtime")) ? 1 : 0;
         }
         return isAndroid == 1;
+    }
+
+    public static boolean areBigIntegersEqual(BigInteger value1, BigInteger value2) {
+        return value1.compareTo(value2) == 0;
     }
 
     private static class Pair implements Comparable<Pair> {

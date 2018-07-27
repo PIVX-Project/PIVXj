@@ -502,6 +502,10 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         return keyChainType;
     }
 
+    public boolean isZerocoinPath() {
+        return keyChainType == KeyChainType.BIP44_ZPIV;
+    }
+
     private DeterministicKey encryptNonLeaf(KeyParameter aesKey, DeterministicKeyChain chain,
                                             DeterministicKey parent, ImmutableList<ChildNumber> path) {
         DeterministicKey key = chain.hierarchy.get(path, false, false);
@@ -1295,7 +1299,6 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
             hierarchy.putKey(key);
             result.add(key);
             nextChild = key.getChildNumber().num() + 1;
-            // zcoin TODO: Check this.. the map is not well..
             if (createZcoins){
                 try{
                     generateZcoin(key);
@@ -1476,6 +1479,15 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
 
     public ZCoin getZcoinsAssociated(DeterministicKey key) {
         return zcoins.get(key);
+    }
+
+    public boolean isCommitmentValueMine(BigInteger value) {
+        for (ZCoin zCoin : zcoins.values()) {
+            if (Utils.areBigIntegersEqual(zCoin.getCommitment().getCommitmentValue(), value)){
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Create a new key and return the matching output script.  Only applicable to married keychains. */

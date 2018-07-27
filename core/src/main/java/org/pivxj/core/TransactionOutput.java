@@ -327,7 +327,7 @@ public class TransactionOutput extends ChildMessage {
                 return transactionBag.isPayToScriptHashMine(script.getPubKeyHash());
             } else if (script.isZcMint() || script.isZcSpend()){
                 // TODO: Check if this method is right or i should create a new one..
-                return transactionBag.isWatchedScript(script);
+                return transactionBag.isZcOutputMine(script);
             } else {
                 byte[] pubkeyHash = script.getPubKeyHash();
                 return transactionBag.isPubKeyHashMine(pubkeyHash);

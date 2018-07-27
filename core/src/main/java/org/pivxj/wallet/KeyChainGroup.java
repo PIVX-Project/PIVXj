@@ -30,6 +30,7 @@ import org.spongycastle.crypto.Commitment;
 import org.spongycastle.crypto.params.*;
 
 import javax.annotation.*;
+import java.math.BigInteger;
 import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -276,6 +277,10 @@ public class KeyChainGroup implements KeyBag {
      */
     public ZCoin getZcoinsAssociated(DeterministicKey key) {
         return getActiveKeyChain().getZcoinsAssociated(key);
+    }
+
+    public boolean isCommitmentValuesMine(BigInteger value) {
+        return getActiveKeyChain().isCommitmentValueMine(value);
     }
 
     /**

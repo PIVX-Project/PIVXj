@@ -1033,6 +1033,26 @@ public class Wallet extends BaseTaggableObject
         }
     }
 
+    @Override
+    public boolean isZcOutputMine(Script script) {
+        keyChainGroupLock.lock();
+        try{
+            if (watchedScripts.contains(script)){
+                return true;
+            }else {
+                if (script.isZcMint()){
+                    BigInteger commitmentValue = script.getCommitmentValue();
+                    return keyChainGroup.isCommitmentValuesMine(commitmentValue);
+                }else {
+                    // TODO: Check zc_spend here..
+                    return false;
+                }
+            }
+        } finally {
+            keyChainGroupLock.unlock();
+        }
+    }
+
     /**
      * Locates a keypair from the basicKeyChain given the raw public key bytes.
      * @return ECKey or null if no such key was found.
@@ -3588,6 +3608,7 @@ public class Wallet extends BaseTaggableObject
      */
     public Coin getBalance(BalanceType balanceType) {
         lock.lock();
+        boolean isZerocoin = getActiveKeyChain().isZerocoinPath();
         try {
             if (balanceType == BalanceType.AVAILABLE || balanceType == BalanceType.AVAILABLE_SPENDABLE) {
                 List<TransactionOutput> candidates = calculateAllSpendCandidates(true, balanceType == BalanceType.AVAILABLE_SPENDABLE);

@@ -1,5 +1,7 @@
 package org.pivxj.wallet;
 
+import com.zerocoinj.JniBridge;
+import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
 import host.furszy.zerocoinj.wallet.MultiWallet;
 import org.junit.Assert;
@@ -10,13 +12,11 @@ import org.pivxj.params.MainNetParams;
 import org.pivxj.params.UnitTestParams;
 import org.pivxj.testing.TestWithWallet;
 import org.spongycastle.util.encoders.Hex;
-
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.InetAddress;
-
-import static org.pivxj.testing.FakeTxBuilder.createFakeTx;
 import static org.pivxj.wallet.DeterministicKeyChain.KeyChainType.BIP44_PIV;
 import static org.pivxj.wallet.DeterministicKeyChain.KeyChainType.BIP44_ZPIV;
-import static org.pivxj.wallet.WalletTest.broadcastAndCommit;
 
 public class MultiWalletTest extends TestWithWallet {
 
@@ -60,7 +60,7 @@ public class MultiWalletTest extends TestWithWallet {
                     "",
                     System.currentTimeMillis()
             );
-            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(), seed);
+            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
             loadWallet(multiWallet, Coin.valueOf(2,0));
             SendRequest req = multiWallet.createMintRequest(Coin.valueOf(2, 0));
 
@@ -89,6 +89,7 @@ public class MultiWalletTest extends TestWithWallet {
             // TODO: add the receiving part of this.. i have to check how is this calculated
             System.out.println(multiWallet.getZPivWallet());
 
+
         } catch (InsufficientMoneyException e) {
             e.printStackTrace();
             Assert.fail(e.getMessage());
@@ -110,5 +111,84 @@ public class MultiWalletTest extends TestWithWallet {
         System.out.println("wallet unspendable: " + wallet.getBalance(Wallet.BalanceType.ESTIMATED));
     }
 
+
+    /**
+     * TODO: Create a test that
+     * 1) Creates the zpiv wallet
+     * 2) Serialize it.
+     * 3) Deserialize it and try to validate if a previous valid zCoin is part of the wallet.
+     */
+    @Test
+    public void recreateWalletTest(){
+        try {
+            NetworkParameters params = UnitTestParams.get();
+            setUp();
+            DeterministicSeed seed = new DeterministicSeed(
+                    Hex.decode("760a00eda285a842ad99626b61faebb6e36d80decae6665ac9c5f4c17db5185858d9fed30b6cd78a7daff4e07c88bf280cfc595620a4107613b50cab42a32f9b"),
+                    "",
+                    System.currentTimeMillis()
+            );
+            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
+
+            ZCoin myCoin = multiWallet.getZPivWallet().getWallet().getActiveKeyChain().getZcoins(1).get(0);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            new WalletProtobufSerializer().walletToProto(multiWallet).build().writeTo(outputStream);
+            byte[] walletBytes = outputStream.toByteArray();
+            outputStream.close();
+
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(walletBytes);
+            MultiWallet multiWallet2 = new WalletProtobufSerializer().readMultiWallet(inputStream, false, null);
+
+            ZCoin myCoin2 = multiWallet2.getZPivWallet().getWallet().getActiveKeyChain().getZcoins(1).get(0);
+
+            Assert.assertEquals("Coins are not equals", myCoin,myCoin2);
+        } catch (Exception e) {
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * Test to validate that the zPIV wallet understand mint txes and add them to the wallet balance
+     */
+    @Test
+    public void addZpivToWalletBalanceTest() {
+        try {
+            NetworkParameters params = UnitTestParams.get();
+            setUp();
+            DeterministicSeed seed = new DeterministicSeed(
+                    Hex.decode("760a00eda285a842ad99626b61faebb6e36d80decae6665ac9c5f4c17db5185858d9fed30b6cd78a7daff4e07c88bf280cfc595620a4107613b50cab42a32f9b"),
+                    "",
+                    System.currentTimeMillis()
+            );
+            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
+            loadWallet(multiWallet, Coin.valueOf(2, 0));
+            SendRequest req = multiWallet.createMintRequest(Coin.valueOf(2, 0));
+
+
+            Transaction tx = req.tx;
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{1, 2, 3, 4})));
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{10, 2, 3, 4})));
+            multiWallet.commitTx(tx);
+
+
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            // Confirmed tx
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            // More blocks..
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+
+            Assert.assertTrue("Zpiv balance has not been increased" , multiWallet.getZpivWallet().getBalance().isGreaterThan(Coin.ZERO));
+        } catch (Exception e) {
+            Assert.fail(e.getMessage());
+        }
+    }
 
 }

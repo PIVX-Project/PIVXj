@@ -856,10 +856,12 @@ public class Script {
     }
 
     public boolean isZcMint() {
+        if (chunks.isEmpty()) return false;
         return chunks.get(0).opcode == OP_ZEROCOINMINT;
     }
 
     public boolean isZcSpend() {
+        if (chunks.isEmpty()) return false;
         return chunks.get(0).opcode == OP_ZEROCOINSPEND;
     }
 

@@ -17,8 +17,10 @@
 
 package org.pivxj.wallet;
 
+import host.furszy.zerocoinj.wallet.MultiWallet;
 import org.pivxj.core.*;
 import org.pivxj.core.TransactionConfidence.ConfidenceType;
+import org.pivxj.crypto.EncryptedData;
 import org.pivxj.crypto.KeyCrypter;
 import org.pivxj.crypto.KeyCrypterScrypt;
 import org.pivxj.script.Script;
@@ -47,6 +49,8 @@ import java.net.UnknownHostException;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.pivxj.wallet.DeterministicKeyChain.DEFAULT_PASSPHRASE_FOR_MNEMONIC;
+import static org.pivxj.wallet.DeterministicKeyChain.serializeSeedEncryptableItem;
 
 /**
  * Serialize and de-serialize a wallet to a byte stream containing a
@@ -124,6 +128,11 @@ public class WalletProtobufSerializer {
         walletProto.writeTo(output);
     }
 
+    public void writeMultiWallet(MultiWallet wallet, OutputStream output) throws IOException {
+        Protos.MultiWallet walletProto = walletToProto(wallet).build();
+        walletProto.writeTo(output);
+    }
+
     /**
      * Returns the given wallet formatted as text. The text format is that used by protocol buffers and although it
      * can also be parsed using {@link TextFormat#merge(CharSequence, com.google.protobuf.Message.Builder)},
@@ -134,6 +143,19 @@ public class WalletProtobufSerializer {
     public String walletToText(Wallet wallet) {
         Protos.Wallet walletProto = walletToProto(wallet);
         return TextFormat.printToString(walletProto);
+    }
+
+    public Protos.MultiWallet.Builder walletToProto(MultiWallet multiWallet) {
+        DeterministicSeed seed = multiWallet.getSeed();
+        Protos.Key.Builder mnemonicEntry = BasicKeyChain.serializeEncryptableItem(seed);
+        mnemonicEntry.setType(Protos.Key.Type.DETERMINISTIC_MNEMONIC);
+        serializeSeedEncryptableItem(seed, mnemonicEntry);
+        return Protos.MultiWallet.newBuilder()
+                .addWallets(
+                    walletToProto(multiWallet.getPivWallet())
+                ).addWallets(
+                        walletToProto(multiWallet.getZpivWallet())
+                ).setMnemonic(mnemonicEntry);
     }
 
     /**
@@ -406,7 +428,7 @@ public class WalletProtobufSerializer {
      * Wallet object with {@code forceReset} set {@code true}. It won't work.</p>
      *
      * <p>If {@code forceReset} is {@code true}, then no transactions are loaded from the wallet, and it is configured
-     * to replay transactions from the blockchain (as if the wallet had been loaded and {@link Wallet.reset}
+     * to replay transactions from the blockchain (as if the wallet had been loaded and {@link Wallet#reset()}}
      * had been called immediately thereafter).
      *
      * <p>A wallet can be unreadable for various reasons, such as inability to open the file, corrupt data, internally
@@ -423,6 +445,63 @@ public class WalletProtobufSerializer {
             if (params == null)
                 throw new UnreadableWalletException("Unknown network parameters ID " + paramsID);
             return readWallet(params, extensions, walletProto, forceReset);
+        } catch (IOException e) {
+            throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+        } catch (IllegalStateException e) {
+            throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+        } catch (IllegalArgumentException e) {
+            throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+        }
+    }
+
+    public MultiWallet readMultiWallet(InputStream input, boolean forceReset, @Nullable WalletExtension[] extensions) throws UnreadableWalletException {
+        try {
+            List<Wallet> wallets = new ArrayList<>();
+
+            Protos.MultiWallet walletProto = parseMultiToProto(input);
+            for (Protos.Wallet wallet : walletProto.getWalletsList()) {
+                final String paramsID = wallet.getNetworkIdentifier();
+                NetworkParameters params = NetworkParameters.fromID(paramsID);
+                if (params == null)
+                    throw new UnreadableWalletException("Unknown network parameters ID " + paramsID);
+                wallets.add(
+                        readWallet(params, extensions, wallet, forceReset)
+                );
+            }
+            DeterministicSeed seed;
+            //
+            Protos.Key key = walletProto.getMnemonic();
+            long timestamp = key.getCreationTimestamp() / 1000;
+            String passphrase = DEFAULT_PASSPHRASE_FOR_MNEMONIC; // FIXME allow non-empty passphrase
+            if (key.hasSecretBytes()) {
+                if (key.hasEncryptedDeterministicSeed())
+                    throw new UnreadableWalletException("Malformed key proto: " + key.toString());
+                byte[] seedBytes = null;
+                if (key.hasDeterministicSeed()) {
+                    seedBytes = key.getDeterministicSeed().toByteArray();
+                }
+                seed = new DeterministicSeed(key.getSecretBytes().toStringUtf8(), seedBytes, passphrase, timestamp);
+            } else if (key.hasEncryptedData()) {
+                if (key.hasDeterministicSeed())
+                    throw new UnreadableWalletException("Malformed key proto: " + key.toString());
+                EncryptedData data = new EncryptedData(key.getEncryptedData().getInitialisationVector().toByteArray(),
+                        key.getEncryptedData().getEncryptedPrivateKey().toByteArray());
+                EncryptedData encryptedSeedBytes = null;
+                if (key.hasEncryptedDeterministicSeed()) {
+                    Protos.EncryptedData encryptedSeed = key.getEncryptedDeterministicSeed();
+                    encryptedSeedBytes = new EncryptedData(encryptedSeed.getInitialisationVector().toByteArray(),
+                            encryptedSeed.getEncryptedPrivateKey().toByteArray());
+                }
+                seed = new DeterministicSeed(data, encryptedSeedBytes, timestamp);
+            } else {
+                throw new UnreadableWalletException("Malformed key proto: " + key.toString());
+            }
+            //
+            if (!wallets.isEmpty()){
+                return new MultiWallet(seed,wallets);
+            }else {
+                throw new UnreadableWalletException("Unknown file, no available wallets");
+            }
         } catch (IOException e) {
             throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
         } catch (IllegalStateException e) {
@@ -455,7 +534,7 @@ public class WalletProtobufSerializer {
      * Wallet object with {@code forceReset} set {@code true}. It won't work.</p>
      *
      * <p>If {@code forceReset} is {@code true}, then no transactions are loaded from the wallet, and it is configured
-     * to replay transactions from the blockchain (as if the wallet had been loaded and {@link Wallet.reset}
+     * to replay transactions from the blockchain (as if the wallet had been loaded and {@link Wallet#reset()}}
      * had been called immediately thereafter).
      *
      * <p>A wallet can be unreadable for various reasons, such as inability to open the file, corrupt data, internally
@@ -604,6 +683,12 @@ public class WalletProtobufSerializer {
         CodedInputStream codedInput = CodedInputStream.newInstance(input);
         codedInput.setSizeLimit(WALLET_SIZE_LIMIT);
         return Protos.Wallet.parseFrom(codedInput);
+    }
+
+    public static Protos.MultiWallet parseMultiToProto(InputStream input) throws IOException{
+        CodedInputStream codedInput = CodedInputStream.newInstance(input);
+        codedInput.setSizeLimit(WALLET_SIZE_LIMIT);
+        return Protos.MultiWallet.parseFrom(codedInput);
     }
 
     private void readTransaction(Protos.Transaction txProto, NetworkParameters params) throws UnreadableWalletException {

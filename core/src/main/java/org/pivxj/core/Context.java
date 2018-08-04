@@ -14,6 +14,7 @@
 
 package org.pivxj.core;
 
+import com.zerocoinj.JniBridge;
 import com.zerocoinj.core.context.ZerocoinContext;
 import org.pivxj.core.listeners.BlockChainListener;
 import org.pivxj.store.FlatDB;
@@ -51,7 +52,7 @@ import static com.google.common.base.Preconditions.*;
 public class Context {
     private static final Logger log = LoggerFactory.getLogger(Context.class);
 
-    public ZerocoinContext zerocoinContext = new ZerocoinContext();
+    public static ZerocoinContext zerocoinContext;
 
     private TxConfidenceTable confidenceTable;
     private NetworkParameters params;
@@ -87,6 +88,11 @@ public class Context {
         lastConstructed = this;
         // We may already have a context in our TLS slot. This can happen a lot during unit tests, so just ignore it.
         slot.set(this);
+        if (!Utils.isAndroidRuntime()){
+            zerocoinContext  = new ZerocoinContext(new JniBridge());
+        }else {
+            zerocoinContext = new ZerocoinContext(null);
+        }
     }
 
     /**

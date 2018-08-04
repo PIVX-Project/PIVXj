@@ -1,5 +1,6 @@
 /** Copyright 2013 Google Inc.
  *  Copyright 2014 Andreas Schildbach
+ *  Copyright 2017 Matias Furszyfer
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +24,8 @@
  * - To regenerate after editing, run: mvn generate-sources -DupdateProtobuf
  */
 
+
+syntax = "proto2";
 package wallet;
 
 option java_package = "org.pivxj.wallet";
@@ -72,8 +75,35 @@ message DeterministicKey {
   optional uint32 sigsRequiredToSpend = 6 [default = 1];
 }
 
+
 /**
- * A key used to control Bitcoin spending.
+* Commitment data
+*
+*/
+message Commitment{
+    required bytes content = 1;
+    required bytes randomness = 2;
+    required bytes contentValue = 3;
+}
+
+/**
+* Data used to control Zpiv spending
+*
+*
+*
+*/
+message Zpiv{
+   optional int32 version = 1;
+   required Commitment commitment = 2;
+   required bytes serial = 3;
+   optional int32 den = 4;
+   optional bytes parentTxId = 5;
+   optional int64 height = 6;
+}
+
+
+/**
+ * A key used to control PIV spending.
  *
  * Either the private key, the public key or both may be present.  It is recommended that
  * if the private key is provided that the public key is provided too because deriving it is slow.
@@ -132,6 +162,9 @@ message Key {
 
   // Encrypted version of the seed
   optional EncryptedData encrypted_deterministic_seed = 9;
+
+  // Associated zpiv
+  optional Zpiv zpiv = 10;
 }
 
 message Script {
@@ -402,6 +435,13 @@ message Wallet {
   repeated TransactionSigner transaction_signers = 17;
 
   // Next tag: 18
+}
+
+/** Lazy multi-wallet implementation */
+message MultiWallet {
+    optional int32 version = 1 [default = 1];
+    repeated Wallet wallets = 2;
+    required Key mnemonic = 3;
 }
 
 /** An exchange rate between Bitcoin and some fiat currency. */

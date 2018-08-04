@@ -348,7 +348,7 @@
 //        //dir.mkdir();
 //        File walletFile = new File("wallet_testnet_3.dat");
 //        watchingWallet.saveToFile(walletFile);
-//        watchingWallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
+//        watchingWallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new MultiWalletFiles.Listener() {
 //            @Override
 //            public void onBeforeAutoSave(File tempFile) {
 //
@@ -617,7 +617,7 @@
 //        File walletFile = new File("wallet_new_eckey.dat");
 //        Wallet wallet = createWallet(params,walletFile);
 //        wallet.saveToFile(walletFile);
-//        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
+//        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new MultiWalletFiles.Listener() {
 //            @Override
 //            public void onBeforeAutoSave(File tempFile) {
 //
@@ -866,7 +866,7 @@
 //        //Wallet wallet = restore(networkParameters);
 //        System.out.println("Wallet keys: "+Arrays.toString(wallet.getWatchedAddresses().toArray()));
 //        wallet.saveToFile(walletFile);
-//        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new WalletFiles.Listener() {
+//        wallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new MultiWalletFiles.Listener() {
 //            @Override
 //            public void onBeforeAutoSave(File tempFile) {
 //

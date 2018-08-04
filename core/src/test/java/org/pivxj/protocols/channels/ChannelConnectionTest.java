@@ -16,6 +16,7 @@
 
 package org.pivxj.protocols.channels;
 
+import host.furszy.zerocoinj.wallet.files.Listener;
 import org.pivxj.core.*;
 import org.pivxj.testing.TestWithWallet;
 import org.pivxj.utils.Threading;
@@ -222,7 +223,7 @@ public class ChannelConnectionTest extends TestWithWallet {
         final CountDownLatch latch = new CountDownLatch(3);  // Expect 3 calls.
         File tempFile = File.createTempFile("channel_connection_test", ".wallet");
         tempFile.deleteOnExit();
-        serverWallet.autosaveToFile(tempFile, 0, TimeUnit.SECONDS, new WalletFiles.Listener() {
+        serverWallet.autosaveToFile(tempFile, 0, TimeUnit.SECONDS, new Listener() {
             @Override
             public void onBeforeAutoSave(File tempFile) {
                 latch.countDown();

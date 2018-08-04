@@ -23,7 +23,11 @@ import com.google.common.collect.*;
 import com.google.common.primitives.*;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.*;
+import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.ZCoin;
+import host.furszy.zerocoinj.WalletFilesInterface;
+import host.furszy.zerocoinj.protocol.GenWitMessage;
+import host.furszy.zerocoinj.wallet.ZCSpendRequest;
 import net.jcip.annotations.*;
 import org.pivxj.core.*;
 import org.pivxj.core.Message;
@@ -93,7 +97,7 @@ import static java.lang.Math.max;
  * auto-save feature that simplifies this for you although you're still responsible for manually triggering a save when
  * your app is about to quit because the auto-save feature waits a moment before actually committing to disk to avoid IO
  * thrashing when the wallet is changing very fast (eg due to a block chain sync). See
- * {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit, org.pivxj.wallet.WalletFiles.Listener)}
+ * {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit, host.furszy.zerocoinj.wallet.files.Listener)}
  * for more information about this.</p>
  */
 public class Wallet extends BaseTaggableObject
@@ -198,7 +202,7 @@ public class Wallet extends BaseTaggableObject
     private int onWalletChangedSuppressions;
     private boolean insideReorg;
     private Map<Transaction, TransactionConfidence.Listener.ChangeReason> confidenceChanged;
-    protected volatile WalletFiles vFileManager;
+    protected volatile WalletFilesInterface vFileManager;
     // Object that is used to send transactions asynchronously when the wallet requires it.
     protected volatile TransactionBroadcaster vTransactionBroadcaster;
     // UNIX time in seconds. Money controlled by keys created before this time will be automatically respent to a key
@@ -703,7 +707,7 @@ public class Wallet extends BaseTaggableObject
 
     /**
      * Imports the given keys to the wallet.
-     * If {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit, org.pivxj.wallet.WalletFiles.Listener)}
+     * If {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit,  host.furszy.zerocoinj.wallet.files.Listener)}
      * has been called, triggers an auto save bypassing the normal coalescing delay and event handlers.
      * Returns the number of keys added, after duplicates are ignored. The onKeyAdded event will be called for each key
      * in the list that was not already present.
@@ -1114,6 +1118,8 @@ public class Wallet extends BaseTaggableObject
                     } else if (script.isPayToScriptHash()) {
                         Address a = Address.fromP2SHScript(tx.getParams(), script);
                         keyChainGroup.markP2SHAddressAsUsed(a);
+                    } else if (script.isZcMint()){
+                        keyChainGroup.markCommitmentValueAsUsed(script.getCommitmentValue());
                     }
                 } catch (ScriptException e) {
                     // Just means we didn't understand the output of this transaction: ignore it.
@@ -1456,7 +1462,7 @@ public class Wallet extends BaseTaggableObject
      * @param eventListener callback to be informed when the auto-save thread does things, or null
      */
     public WalletFiles autosaveToFile(File f, long delayTime, TimeUnit timeUnit,
-                                      @Nullable WalletFiles.Listener eventListener) {
+                                      @Nullable host.furszy.zerocoinj.wallet.files.Listener eventListener) {
         lock.lock();
         try {
             checkState(vFileManager == null, "Already auto saving this wallet.");
@@ -1470,17 +1476,32 @@ public class Wallet extends BaseTaggableObject
         }
     }
 
+    public WalletFilesInterface autosaveToFile(WalletFilesInterface walletFiles,
+                                               @Nullable host.furszy.zerocoinj.wallet.files.Listener eventListener) {
+        lock.lock();
+        try {
+            checkState(vFileManager == null, "Already auto saving this wallet.");
+            WalletFilesInterface manager = walletFiles;
+            if (eventListener != null)
+                manager.setListener(eventListener);
+            vFileManager = manager;
+            return manager;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /**
      * <p>
      * Disables auto-saving, after it had been enabled with
-     * {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit, org.pivxj.wallet.WalletFiles.Listener)}
+     * {@link Wallet#autosaveToFile(java.io.File, long, java.util.concurrent.TimeUnit, host.furszy.zerocoinj.wallet.files.Listener)}
      * before. This method blocks until finished.
      * </p>
      */
     public void shutdownAutosaveAndWait() {
         lock.lock();
         try {
-            WalletFiles files = vFileManager;
+            WalletFilesInterface files = vFileManager;
             vFileManager = null;
             checkState(files != null, "Auto saving not enabled.");
             files.shutdownAndWait();
@@ -1491,14 +1512,14 @@ public class Wallet extends BaseTaggableObject
 
     /** Requests an asynchronous save on a background thread */
     protected void saveLater() {
-        WalletFiles files = vFileManager;
+        WalletFilesInterface files = vFileManager;
         if (files != null)
             files.saveLater();
     }
 
     /** If auto saving is enabled, do an immediate sync write to disk ignoring any delays. */
     protected void saveNow() {
-        WalletFiles files = vFileManager;
+        WalletFilesInterface files = vFileManager;
         if (files != null) {
             try {
                 files.saveNow();  // This calls back into saveToFile().
@@ -3543,6 +3564,14 @@ public class Wallet extends BaseTaggableObject
         return description;
     }
 
+    public ZCoin getZcoin(BigInteger commitmentValue) {
+        return getActiveKeyChain().getZcoinsAssociated(commitmentValue);
+    }
+
+    public List<ZCoin> getZcoins(int amount) {
+        return getActiveKeyChain().getZcoins(amount);
+    }
+
     //endregion
 
     /******************************************************************************************************************/
@@ -3830,7 +3859,7 @@ public class Wallet extends BaseTaggableObject
      * and lets you see the proposed transaction before anything is done with it.</p>
      *
      * <p>This is a helper method that is equivalent to using {@link SendRequest#to(Address, Coin)}
-     * followed by {@link Wallet#completeTx(Wallet.SendRequest)} and returning the requests transaction object.
+     * followed by {@link Wallet#completeTx(SendRequest)} and returning the requests transaction object.
      * Note that this means a fee may be automatically added if required, if you want more control over the process,
      * just do those two steps yourself.</p>
      *
@@ -3863,7 +3892,7 @@ public class Wallet extends BaseTaggableObject
      * Sends coins to the given address but does not broadcast the resulting pending transaction. It is still stored
      * in the wallet, so when the wallet is added to a {@link PeerGroup} or {@link Peer} the transaction will be
      * announced to the network. The given {@link SendRequest} is completed first using
-     * {@link Wallet#completeTx(Wallet.SendRequest)} to make it valid.
+     * {@link Wallet#completeTx(SendRequest)} to make it valid.
      *
      * @return the Transaction that was created
      * @throws InsufficientMoneyException if the request could not be completed due to not enough balance.
@@ -4148,6 +4177,46 @@ public class Wallet extends BaseTaggableObject
     }
 
     /**
+     *
+     * @param spendRequest
+     */
+    public void completeSendRequest(ZCSpendRequest spendRequest) {
+        SendRequest request = spendRequest.getSendRequest();
+        for (TransactionInput input : request.tx.getInputs()) {
+            // First get the zcoin to spend
+            TransactionOutput connectedOutput = input.getConnectedOutput();
+            ZCoin zCoin = getActiveKeyChain().getZcoinsAssociated(connectedOutput.getScriptPubKey().getCommitmentValue());
+            if (zCoin == null) throw new IllegalArgumentException("zCoin associated not found, " + input.getScriptSig().getCommitmentValue().toString(16));
+
+            // Now get the mint transaction associated with this coin
+            Sha256Hash mintTxId = connectedOutput.getParentTransactionHash();
+            int mintTxHeight = lastBlockSeenHeight - connectedOutput.getParentTransaction().getConfidence().getAppearedAtChainHeight();
+
+            if (mintTxHeight < CoinDefinition.ZEROCOIN_REQUIRED_STAKE_DEPTH){
+                throw new IllegalStateException("Coin depth is lower than the minimum spend depth");
+            }
+
+            zCoin.setHeight(mintTxHeight);
+            zCoin.setParentTxId(mintTxId);
+
+            // Now create the genWithMessage
+            spendRequest.addWaitingRequest(newGenWitMessage(zCoin), zCoin);
+        }
+    }
+
+    private GenWitMessage newGenWitMessage(ZCoin zCoin) {
+        GenWitMessage genWitMessage = new GenWitMessage(
+                params,
+                zCoin.getHeight(), // minted height
+                zCoin.getCoinDenomination(),
+                1, 0.001, (long) (Math.random() * Long.MAX_VALUE)
+        );
+        BigInteger bnValue = zCoin.getCommitment().getCommitmentValue();
+        genWitMessage.insert(bnValue);
+        return genWitMessage;
+    }
+
+    /**
      * <p>Given a send request containing transaction, attempts to sign it's inputs. This method expects transaction
      * to have all necessary inputs connected or they will be ignored.</p>
      * <p>Actual signing is done by pluggable {@link #signers} and it's not guaranteed that
@@ -4185,6 +4254,11 @@ public class Wallet extends BaseTaggableObject
                 }
 
                 Script scriptPubKey = txIn.getConnectedOutput().getScriptPubKey();
+                // If it's a zc_mint we don't need to sign it.
+                if (scriptPubKey.isZcMint()){
+                    continue;
+                }
+
                 RedeemData redeemData = txIn.getConnectedRedeemData(maybeDecryptingKeyBag);
                 checkNotNull(redeemData, "Transaction exists in wallet that we cannot redeem: %s", txIn.getOutpoint().getHash());
                 txIn.setScriptSig(scriptPubKey.createEmptyInputScript(redeemData.keys.get(0), redeemData.redeemScript));

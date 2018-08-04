@@ -474,7 +474,7 @@ public class Peer extends PeerSocketHandler {
     static double dataReceived = 0f;
     static long count = 1;
     @Override
-    protected void processMessage(Message m) throws Exception {
+    public void processMessage(Message m) throws Exception {
         if(startTime == 0)
             startTime = Utils.currentTimeMillis();
         else
@@ -605,7 +605,11 @@ public class Peer extends PeerSocketHandler {
         }
     }
 
-    private void processPubcoins(PubcoinsMessage m) {
+    /**
+     * Public only for testing
+     * @param m
+     */
+    public void processPubcoins(PubcoinsMessage m) {
         for (ListenerRegistration<OnGetDataResponseEventListener> getDataEventListener : onGetDataResponseEventListener) {
             getDataEventListener.listener.onResponseReceived(m);
         }
@@ -679,6 +683,9 @@ public class Peer extends PeerSocketHandler {
         outgoingVersionHandshakeFuture.set(this);
     }
 
+    /**
+     * Public only for testing
+     */
     private void versionHandshakeComplete() {
         log.debug("{}: Handshake complete.", this);
         setTimeoutEnabled(false);

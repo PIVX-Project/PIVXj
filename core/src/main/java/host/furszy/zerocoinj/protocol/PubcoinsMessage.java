@@ -13,6 +13,7 @@ public class PubcoinsMessage extends Message {
     private BigInteger accValue;
     private BigInteger accWitnessValue;
     private List<BigInteger> list;
+    private long requestNum;
 
     public PubcoinsMessage(NetworkParameters params, byte[] payload, int offset, int lenght) throws ProtocolException {
         super(
@@ -25,21 +26,35 @@ public class PubcoinsMessage extends Message {
         );
     }
 
+    public PubcoinsMessage(NetworkParameters params, BigInteger accValue, BigInteger accWitnessValue, List<BigInteger> list, long requestNum) {
+        super(params);
+        this.accValue = accValue;
+        this.accWitnessValue = accWitnessValue;
+        this.list = list;
+        this.requestNum = requestNum;
+        //
+        this.length = bitcoinSerialize().length;
+    }
+
     @Override
     protected void parse() throws ProtocolException {
         list = new ArrayList<>();
+        requestNum = readUint32();
         accValue = readBignum();
         accWitnessValue = readBignum();
         long size = readUint32();
-        System.out.println("size: " + size);
         for (int i = 0; i < size; i++) {
             list.add(readBignum());
         }
+        length = cursor;
     }
 
     @Override
     public byte[] bitcoinSerialize() {
         try(ByteArrayOutputStream output = new ByteArrayOutputStream()){
+            Utils.uint32ToByteStreamLE(requestNum,output);
+            Utils.serializeBigInteger(output,accValue);
+            Utils.serializeBigInteger(output,accWitnessValue);
             output.write(new VarInt(list.size()).encode());
             for (BigInteger bigInteger : list) {
                 Utils.serializeBigInteger(output, bigInteger);
@@ -62,10 +77,18 @@ public class PubcoinsMessage extends Message {
         return accWitnessValue;
     }
 
+    public long getRequestNum() {
+        return requestNum;
+    }
+
+
     @Override
     public String toString() {
         return "PubcoinsMessage{" +
-                "list=" + Arrays.toString(list.toArray()) +
+                "accValue=" + accValue +
+                ", accWitnessValue=" + accWitnessValue +
+                ", list=" + list +
+                ", requestNum=" + requestNum +
                 '}';
     }
 }

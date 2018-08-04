@@ -21,3 +21,4 @@ checkpoints.txt
 *.DS_Store
 *.db
 build/
+*.class

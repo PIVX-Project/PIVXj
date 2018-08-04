@@ -481,6 +481,18 @@ public class KeyChainGroup implements KeyBag {
         }
     }
 
+    /**
+     *
+     * @param commitmentValue
+     */
+    public void markCommitmentValueAsUsed(BigInteger commitmentValue) {
+        ZCoin coin = getActiveKeyChain().getZcoinsAssociated(commitmentValue);
+        if (coin != null){
+            markPubKeyAsUsed(coin.getKeyPair().getPubKey());
+            // todo: Check if i should mark the commitment as used too or not..
+        }
+    }
+
     /** Returns the number of keys managed by this group, including the lookahead buffers. */
     public int numKeys() {
         int result = basic.numKeys();

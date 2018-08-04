@@ -17,6 +17,8 @@
 
 package org.pivxj.wallet;
 
+import host.furszy.zerocoinj.WalletFilesInterface;
+import host.furszy.zerocoinj.wallet.files.Listener;
 import org.pivxj.core.*;
 import org.pivxj.utils.*;
 import org.slf4j.*;
@@ -37,7 +39,7 @@ import static com.google.common.base.Preconditions.*;
  * can come to dominate the chain processing speed, i.e. on Android phones. By coalescing writes and doing serialization
  * and disk IO on a background thread performance can be improved.
  */
-public class WalletFiles {
+public class WalletFiles implements WalletFilesInterface {
     private static final Logger log = LoggerFactory.getLogger(WalletFiles.class);
 
     private final Wallet wallet;
@@ -49,22 +51,6 @@ public class WalletFiles {
     private final Callable<Void> saver;
 
     private volatile Listener vListener;
-
-    /**
-     * Implementors can do pre/post treatment of the wallet file. Useful for adjusting permissions and other things.
-     */
-    public interface Listener {
-        /**
-         * Called on the auto-save thread when a new temporary file is created but before the wallet data is saved
-         * to it. If you want to do something here like adjust permissions, go ahead and do so.
-         */
-        void onBeforeAutoSave(File tempFile);
-
-        /**
-         * Called on the auto-save thread after the newly created temporary file has been filled with data and renamed.
-         */
-        void onAfterAutoSave(File newlySavedFile);
-    }
 
     /**
      * Initialize atomic and optionally delayed writing of the wallet file to disk. Note the initial wallet state isn't

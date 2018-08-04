@@ -17,6 +17,7 @@
 
 package org.pivxj.wallet;
 
+import host.furszy.zerocoinj.wallet.files.Listener;
 import org.pivxj.core.listeners.TransactionConfidenceEventListener;
 import org.pivxj.core.AbstractBlockChain;
 import org.pivxj.core.Address;
@@ -1804,7 +1805,7 @@ public class WalletTest extends TestWithWallet {
         File f = File.createTempFile("pivxj-unit-test", null);
         Sha256Hash hash1 = Sha256Hash.of(f);
         wallet.autosaveToFile(f, 1, TimeUnit.SECONDS,
-                new WalletFiles.Listener() {
+                new Listener() {
                     @Override
                     public void onBeforeAutoSave(File tempFile) {
                         results[0] = tempFile;

@@ -79,6 +79,11 @@ public class LocalTransactionSigner extends StatelessTransactionSigner {
                 // Expected.
             }
 
+            // Don't sign it if it's a zc_mint
+            if (txIn.getConnectedOutput().isZcMint()){
+                continue;
+            }
+
             RedeemData redeemData = txIn.getConnectedRedeemData(keyBag);
 
             Script scriptPubKey = txIn.getConnectedOutput().getScriptPubKey();

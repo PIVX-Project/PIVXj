@@ -21,6 +21,8 @@ import com.google.common.collect.*;
 import com.google.common.util.concurrent.*;
 import org.pivxj.utils.*;
 import org.pivxj.wallet.Wallet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.*;
 import java.util.*;
@@ -61,6 +63,8 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class TransactionConfidence {
 
+    private static final Logger log = LoggerFactory.getLogger(TransactionConfidence.class);
+
     /**
      * The peers that have announced the transaction to us. Network nodes don't have stable identities, so we use
      * IP address as an approximation. It's obviously vulnerable to being gamed if we allow arbitrary people to connect
@@ -76,6 +80,7 @@ public class TransactionConfidence {
 
     // The depth of the transaction on the best chain in blocks. An unconfirmed block has depth 0.
     private int depth;
+    private int lastBlockHeightUpdate;
 
     /** Describes the state of the transaction in general terms. Properties can be read to learn specifics. */
     public enum ConfidenceType {
@@ -259,6 +264,7 @@ public class TransactionConfidence {
         this.appearedAtChainHeight = appearedAtChainHeight;
         this.depth = 1;
             setConfidenceType(ConfidenceType.BUILDING);
+        this.lastBlockHeightUpdate = appearedAtChainHeight;
     }
 
     /**
@@ -282,6 +288,7 @@ public class TransactionConfidence {
         if (confidenceType == ConfidenceType.PENDING || confidenceType == ConfidenceType.IN_CONFLICT) {
             depth = 0;
             appearedAtChainHeight = -1;
+            lastBlockHeightUpdate = -1;
         }
     }
 
@@ -379,8 +386,16 @@ public class TransactionConfidence {
      *
      * @return the new depth
      */
-    public synchronized int incrementDepthInBlocks() {
-        return ++this.depth;
+    public synchronized int incrementDepthInBlocks(int seenBlockHeight) {
+        if (lastBlockHeightUpdate != seenBlockHeight){
+            if (lastBlockHeightUpdate > seenBlockHeight){
+                log.warn("trying to increase the tx depth with block with less height that the last depth update..");
+            }
+            this.lastBlockHeightUpdate = seenBlockHeight;
+            return ++this.depth;
+        }
+        // This was increased already, return the current depth
+        return depth;
     }
 
     /**
@@ -401,6 +416,7 @@ public class TransactionConfidence {
      * Set the depth in blocks. Having one block confirmation is a depth of one.
      */
     public synchronized void setDepthInBlocks(int depth) {
+        // TODO: add block height to this method to update the lastBlockHeightUpdate..
         this.depth = depth;
     }
 

@@ -32,7 +32,7 @@ public interface TransactionBag {
     boolean isWatchedScript(Script script);
 
     /** Returns true if this wallet is watching transactions for outputs with the zc commitment value. */
-    boolean isZcOutputMine(Script script);
+    boolean isZcScriptMine(Script script);
 
     /** Returns true if this wallet contains a keypair with the given public key. */
     boolean isPubKeyMine(byte[] pubkey);

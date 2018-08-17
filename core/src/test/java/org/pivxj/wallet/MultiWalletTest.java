@@ -1,6 +1,7 @@
 package org.pivxj.wallet;
 
 import com.zerocoinj.JniBridge;
+import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
 import host.furszy.zerocoinj.wallet.MultiWallet;
@@ -70,24 +71,23 @@ public class MultiWalletTest extends TestWithWallet {
             tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{10,2,3,4})));
             multiWallet.commitTx(tx);
 
-
-            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
             // Confirmed tx
             sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
             sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN,tx);
+
+            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
             // More blocks..
             sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
             sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getPivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(),AbstractBlockChain.NewBlockType.BEST_CHAIN);
 
+            Transaction tx2 = multiWallet.getTransaction(tx.getHash());
 
-            System.out.println(multiWallet.getPivWallet());
-            // TODO: add the receiving part of this.. i have to check how is this calculated
-            System.out.println(multiWallet.getZPivWallet());
+            Assert.assertEquals("Invalid depth in blocks", 5, tx2.getConfidence().getDepthInBlocks());
 
 
         } catch (InsufficientMoneyException e) {
@@ -149,6 +149,123 @@ public class MultiWalletTest extends TestWithWallet {
     }
 
     /**
+     * Test create mint, save the wallet and restore it.
+     * The minted zcoin needs to have the values saved.
+     */
+
+    @Test
+    public void mintSaveRestoreTest(){
+        try {
+            NetworkParameters params = UnitTestParams.get();
+            setUp();
+            DeterministicSeed seed = new DeterministicSeed(
+                    Hex.decode("760a00eda285a842ad99626b61faebb6e36d80decae6665ac9c5f4c17db5185858d9fed30b6cd78a7daff4e07c88bf280cfc595620a4107613b50cab42a32f9b"),
+                    "",
+                    System.currentTimeMillis()
+            );
+            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
+
+            ZCoin myFirstCoin = multiWallet.getZPivWallet().getWallet().getActiveKeyChain().getZcoins(1).get(0);
+
+            // load balance
+            loadWallet(multiWallet, Coin.valueOf(2, 0));
+            // mint
+            SendRequest req = multiWallet.createMintRequest(Coin.valueOf(1, 0));
+            Transaction tx = req.tx;
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{1, 2, 3, 4})));
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{10, 2, 3, 4})));
+            multiWallet.commitTx(tx);
+
+            // obtain the minted coin
+            TransactionOutput mintOutput = null;
+            for (TransactionOutput output : tx.getOutputs()) {
+                if (output.isZcMint()){
+                    mintOutput = output;
+                }
+            }
+            ZCoin minteCoin = multiWallet.getZcoinAssociated(mintOutput.getScriptPubKey().getCommitmentValue());
+
+            // Now check that both coins commitments are equals
+            Assert.assertEquals("Coins are not equals", minteCoin.getCommitment(), myFirstCoin.getCommitment());
+
+            Assert.assertSame("Minted coin denomination is not correct", minteCoin.getCoinDenomination(), CoinDenomination.ZQ_ONE);
+
+            // Confirmed tx
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            // More blocks..
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            new WalletProtobufSerializer().walletToProto(multiWallet).build().writeTo(outputStream);
+            byte[] walletBytes = outputStream.toByteArray();
+            outputStream.close();
+
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(walletBytes);
+            MultiWallet multiWallet2 = new WalletProtobufSerializer().readMultiWallet(inputStream, false, null);
+
+            ZCoin myCoinRestaured = multiWallet2.getZPivWallet().getWallet().getActiveKeyChain().getZcoins(1).get(0);
+
+            Assert.assertEquals("Restored coin is not equal", minteCoin.getCommitment(), myCoinRestaured.getCommitment());
+            Assert.assertSame("Restored minted coin denomination is not correct", myCoinRestaured.getCoinDenomination(), CoinDenomination.ZQ_ONE);
+
+        } catch (Exception e) {
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void moveMintFromPendingPoolToUnspentPool(){
+
+        try {
+            NetworkParameters params = UnitTestParams.get();
+            setUp();
+            DeterministicSeed seed = new DeterministicSeed(
+                    Hex.decode("760a00eda285a842ad99626b61faebb6e36d80decae6665ac9c5f4c17db5185858d9fed30b6cd78a7daff4e07c88bf280cfc595620a4107613b50cab42a32f9b"),
+                    "",
+                    System.currentTimeMillis()
+            );
+            MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
+            loadWallet(multiWallet, Coin.valueOf(2, 0));
+            SendRequest req = multiWallet.createMintRequest(Coin.valueOf(1, 0));
+
+
+            Transaction tx = req.tx;
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{1, 2, 3, 4})));
+            tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{10, 2, 3, 4})));
+            multiWallet.commitTx(tx);
+
+            Assert.assertTrue("Mint is not in pending pool",
+                    multiWallet.getZpivWallet().getTransactionPool(WalletTransaction.Pool.PENDING).containsKey(tx.getHash()));
+
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            // Confirmed tx
+            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN, tx);
+            // More blocks..
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+
+            Assert.assertTrue("Mint is not in unspendable pool",
+                    multiWallet.getZpivWallet().getTransactionPool(WalletTransaction.Pool.UNSPENT).containsKey(tx.getHash()));
+
+            Assert.assertEquals("Invalid value sent to me", tx.getValueSentToMe(multiWallet.getZpivWallet()), Coin.COIN);
+            Assert.assertEquals("Invalid value sent from me", tx.getValueSentFromMe(multiWallet.getPivWallet()), Coin.valueOf(2,0));
+
+        } catch (Exception e) {
+            Assert.fail(e.getMessage());
+        }
+
+
+    }
+
+    /**
      * Test to validate that the zPIV wallet understand mint txes and add them to the wallet balance
      */
     @Test
@@ -163,14 +280,13 @@ public class MultiWalletTest extends TestWithWallet {
             );
             MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed);
             loadWallet(multiWallet, Coin.valueOf(2, 0));
-            SendRequest req = multiWallet.createMintRequest(Coin.valueOf(2, 0));
+            SendRequest req = multiWallet.createMintRequest(Coin.valueOf(1, 0));
 
 
             Transaction tx = req.tx;
             tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{1, 2, 3, 4})));
             tx.getConfidence().markBroadcastBy(new PeerAddress(PARAMS, InetAddress.getByAddress(new byte[]{10, 2, 3, 4})));
             multiWallet.commitTx(tx);
-
 
             sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
             sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
@@ -182,10 +298,18 @@ public class MultiWalletTest extends TestWithWallet {
             // More blocks..
             sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
             sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
-            sendMoneyToWallet(multiWallet.getPivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
+            sendMoneyToWallet(multiWallet.getZpivWallet(), AbstractBlockChain.NewBlockType.BEST_CHAIN);
 
             Assert.assertTrue("Zpiv balance has not been increased" , multiWallet.getZpivWallet().getBalance().isGreaterThan(Coin.ZERO));
+
+
+            // Now spend it and check if the wallet notice that
+
+            //SendRequest sendRequest = multiWallet.createSpendRequest(multiWallet.getCurrentReceiveAddress(),Coin.COIN);
+            //multiWallet.spendZpiv(sendRequest)
+
+
         } catch (Exception e) {
             Assert.fail(e.getMessage());
         }

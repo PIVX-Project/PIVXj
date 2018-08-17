@@ -99,6 +99,7 @@ message Zpiv{
    optional int32 den = 4;
    optional bytes parentTxId = 5;
    optional int64 height = 6;
+   required Key key = 7;
 }
 
 
@@ -186,6 +187,11 @@ message TransactionInput {
   optional uint32 sequence = 4;
   // Value of connected output, if known
   optional int64 value = 5;
+
+  // Hash of the transaction this input is using.
+  optional bytes private_transaction_out_point_hash = 6;
+  // Index of transaction output used by this input.
+  optional uint32 private_transaction_out_point_index = 7;
 }
 
 message TransactionOutput {

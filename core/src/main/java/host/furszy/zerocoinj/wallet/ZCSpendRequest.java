@@ -1,5 +1,6 @@
 package host.furszy.zerocoinj.wallet;
 
+import com.google.common.collect.Lists;
 import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.CoinSpend;
 import com.zerocoinj.core.SpendType;
@@ -17,17 +18,19 @@ import org.pivxj.script.ScriptBuilder;
 import org.pivxj.script.ScriptOpCodes;
 import org.pivxj.utils.Pair;
 import org.pivxj.wallet.SendRequest;
+import org.pivxj.wallet.exceptions.RequestFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.*;
+
+import static com.google.common.primitives.Ints.min;
 
 public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEventListener {
 
@@ -36,15 +39,22 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
     private SendRequest sendRequest;
     private PeerGroup peerGroup;
     private ZerocoinContext zerocoinContext;
-    private ConcurrentHashMap<Integer,Pair<ZCoin,GenWitMessage>> waitingRequests = new ConcurrentHashMap<>();
+    private List<Pair<ZCoin,GenWitMessage>> waitingRequests = new ArrayList<>();
+    private ConcurrentHashMap<Integer, Pair<ArrayList<ZCoin>,GenWitMessage>> requests;
+    private LinkedBlockingQueue<PubcoinsMessage> messagesQueue = new LinkedBlockingQueue<>();
     private Transaction transaction;
-    private final Object lock;
+    private Sha256Hash txHashOutput;
 
     public ZCSpendRequest(SendRequest sendRequest, PeerGroup peerGroup) {
         this.sendRequest = sendRequest;
+        this.transaction = sendRequest.tx;
+        Transaction temp = new Transaction(this.transaction.getParams());
+        for (TransactionOutput output : this.transaction.getOutputs()) {
+            temp.addOutput(output);
+        }
+        this.txHashOutput = temp.getHash();
         this.peerGroup = peerGroup;
         this.zerocoinContext = Context.get().zerocoinContext;
-        this.lock = new ReentrantLock();
     }
 
     public SendRequest getSendRequest() {
@@ -56,26 +66,58 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
     }
 
     public void addWaitingRequest(GenWitMessage genWitMessage, ZCoin zCoin){
-        if (waitingRequests.containsKey(genWitMessage.getRequestNum())) throw new IllegalArgumentException("Duplicated request num");
-        waitingRequests.put(genWitMessage.getRequestNum(), new Pair<>(zCoin, genWitMessage));
+        if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR) throw new IllegalArgumentException("Invalid denomination");
+        waitingRequests.add(new Pair<>(zCoin, genWitMessage));
     }
 
     @Override
     public Transaction call() throws Exception {
         if (this.peerGroup.getConnectedPeers().isEmpty()) throw new IllegalStateException("No peers online");
 
+        Map<CoinDenomination,Pair<ArrayList<ZCoin>,GenWitMessage>> genWitByDenomination = new HashMap<>();
+
+        for (Pair<ZCoin, GenWitMessage> entry : waitingRequests) {
+            GenWitMessage genWitMessage = entry.getSecond();
+            if (genWitByDenomination.containsKey(genWitMessage.getDen())){
+                Pair<ArrayList<ZCoin>,GenWitMessage> pair = genWitByDenomination.get(genWitMessage.getDen());
+                GenWitMessage currentGenWit = pair.getSecond();
+                // merge the current one
+                currentGenWit.getFilter().merge(genWitMessage.getFilter());
+                // start height must be the minimum
+                currentGenWit.setStartHeight(min(currentGenWit.getStartHeight(), genWitMessage.getStartHeight()));
+                pair.getFirst().add(entry.getFirst());
+            }else {
+                // create a new one
+                Pair<ArrayList<ZCoin>, GenWitMessage> pair = new Pair<>(Lists.newArrayList(entry.getFirst()),genWitMessage);
+                genWitByDenomination.put(genWitMessage.getDen(), pair);
+                genWitMessage.complete();
+            }
+        }
+
+        requests = new ConcurrentHashMap<>();
+        for (Map.Entry<CoinDenomination, Pair<ArrayList<ZCoin>, GenWitMessage>> entry : genWitByDenomination.entrySet()) {
+            requests.put(entry.getValue().getSecond().getRequestNum(), entry.getValue());
+        }
+        // TODO: send this to several peers and not just one
         Peer peer0 = this.peerGroup.getConnectedPeers().get(0);
         peer0.addOnGetDataResponseEventListener(this);
-
-        for (Map.Entry<Integer, Pair<ZCoin, GenWitMessage>> entry : waitingRequests.entrySet()) {
+        for (Map.Entry<CoinDenomination, Pair<ArrayList<ZCoin>, GenWitMessage>> entry : genWitByDenomination.entrySet()) {
             peer0.sendMessage(entry.getValue().getSecond());
         }
 
         log.info("Waiting for node response..");
         // Now wait for the completeness..
-        synchronized (lock){
-            lock.wait();
+        while (true){
+            // Now spend it if all of the inputs are completed
+            if (requests.size() == 0) {
+                break;
+            }
+
+            PubcoinsMessage message = messagesQueue.take();
+            onPubcoinReceived(message);
+            requests.remove((int) message.getRequestNum());
         }
+
 
         log.info("Transaction ready!");
         for (Peer peer : peerGroup.getConnectedPeers()) {
@@ -85,98 +127,123 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
         return transaction;
     }
 
-    @Override
-    public void onResponseReceived(PubcoinsMessage pubcoinsMessage) {
-        log.info("onResponseReceived: " + pubcoinsMessage.toString());
-        if (! waitingRequests.containsKey((int) pubcoinsMessage.getRequestNum())) return;
-        Pair<ZCoin,GenWitMessage> pair = waitingRequests.get((int) pubcoinsMessage.getRequestNum());
+    public void onPubcoinReceived(PubcoinsMessage pubcoinsMessage) throws InvalidSpendException {
+
+        Pair<ArrayList<ZCoin>,GenWitMessage> pair = requests.get((int) pubcoinsMessage.getRequestNum());
         GenWitMessage request = pair.getSecond();
-        ZCoin coinToSpend = pair.getFirst();
-        if (request != null){
-            List<BigInteger> list = pubcoinsMessage.getList();
-            System.out.println("amount of data received: " + list.size());
-            // Create accumulator:
+        ArrayList<ZCoin> coins = pair.getFirst();
 
-            // First check that my commitment is in the filtered list
-            if (!list.contains(coinToSpend.getCommitment().getCommitmentValue())) {
-                // TODO: Notify fail here..
-                log.error("Pubcoins response list doesn't contains our commitment value.., check core sources");
-                return;
-            }
+        if (request != null) {
+            for (ZCoin coinToSpend : coins) {
 
-            // Accumulator
-            Accumulator acc = new Accumulator(
-                    zerocoinContext.accumulatorParams,
-                    CoinDenomination.ZQ_ONE,
-                    pubcoinsMessage.getAccValue()
-            );
+                try {
+                    if (pubcoinsMessage.isHasRequestFailed()) {
+                        log.info("Request have failed for {}", pair);
+                        throw new RequestFailedException();
+                    }
+                    List<BigInteger> list = pubcoinsMessage.getList();
+                    System.out.println("amount of data received: " + list.size());
+                    // Create accumulator:
 
-            // Now accumulate the pubcoins to the result to obtain the same witness that is created by the rpc method.
-            Accumulator accWit = new Accumulator(
-                    zerocoinContext.accumulatorParams,
-                    CoinDenomination.ZQ_ONE,
-                    pubcoinsMessage.getAccWitnessValue()
+                    // First check that my commitment is in the filtered list
+                    if (!list.contains(coinToSpend.getCommitment().getCommitmentValue())) {
+                        // TODO: Notify fail here..
+                        log.error("Pubcoins response list doesn't contains our commitment value..");
+                        throw new InvalidSpendException("Pubcoins response list doesn't contains our commitment value.., check core sources");
+                    }
 
-            );
-            AccumulatorWitness witness = new AccumulatorWitness(accWit, coinToSpend);
+                    // Accumulator
+                    Accumulator acc = new Accumulator(
+                            zerocoinContext.accumulatorParams,
+                            coinToSpend.getCoinDenomination(),
+                            pubcoinsMessage.getAccValue()
+                    );
 
-            int i = 0;
-            for (BigInteger bigInteger : list) {
-                witness.addElementUnchecked(bigInteger);
-                if (i % 100 == 0)
-                    log.info("coin incremented: " + i);
-                i++;
-            }
+                    // Now accumulate the pubcoins to the result to obtain the same witness that is created by the rpc method.
+                    Accumulator accWit = new Accumulator(
+                            zerocoinContext.accumulatorParams,
+                            coinToSpend.getCoinDenomination(),
+                            pubcoinsMessage.getAccWitnessValue()
 
-            log.info("Witness: " + witness.getValue());
-            if (!witness.verifyWitness(acc,coinToSpend)){
-                log.error("Verify witness failed");
-                return;
-                //             Assert.assertTrue("Verify failed", witness.verifyWitness(acc, mintedCoin));
-            }
-            log.info("Valid accumulator");
+                    );
+                    AccumulatorWitness witness = new AccumulatorWitness(accWit, coinToSpend);
 
+                    int i = 0;
+                    for (BigInteger bigInteger : list) {
+                        witness.addElementUnchecked(bigInteger);
+                        if (i % 100 == 0)
+                            log.info("coin incremented: " + i);
+                        i++;
+                    }
 
-            // 3) Complete the tx
-            Transaction transaction = sendRequest.tx;
+                    log.info("Witness: " + witness.getValue());
+                    if (!witness.verifyWitness(acc, coinToSpend)) {
+                        log.error("Verify witness failed");
+                        throw new InvalidSpendException("Verify witness failed");
+                    }
+                    log.info("Valid accumulator");
 
-            // Accumulator checksum
-            BigInteger accChecksum = BigInteger.valueOf(
-                    Accumulators.getChecksum(acc.getValue())
-            );
-
-            CoinSpend coinSpend = new CoinSpend(
-                    zerocoinContext,
-                    coinToSpend,
-                    acc,
-                    accChecksum,
-                    witness,
-                    transaction.getHash(),
-                    SpendType.SPEND,
-                    null
-            );
+                    log.info("accumulator: " + acc.getValue());
+                    log.info("witness: " + witness.getValue());
 
 
-            if (!coinSpend.verify(acc)){
-                log.error("CoinSpend not valid");
-                return;
-                // Assert.assertTrue("CoinSpend not valid",coinSpend.verify(acc));
-            }
+                    // 3) Complete the tx
 
-            transaction = add(transaction, coinSpend, coinToSpend.getCommitment().getCommitmentValue());
+                    // Accumulator checksum
+                    BigInteger accChecksum = BigInteger.valueOf(
+                            Accumulators.getChecksum(acc.getValue())
+                    );
 
-            // Now spend it if all of the inputs are completed
-            waitingRequests.remove((int) pubcoinsMessage.getRequestNum());
-            if (waitingRequests.size() == 0){
-                synchronized (lock) {
-                    this.transaction = transaction;
-                    lock.notify();
+                    CoinSpend coinSpend = new CoinSpend(
+                            zerocoinContext,
+                            coinToSpend,
+                            acc,
+                            accChecksum,
+                            witness,
+                            txHashOutput,
+                            SpendType.SPEND,
+                            null
+                    );
+
+
+                    if (!coinSpend.verify(acc)) {
+                        log.error("CoinSpend not valid");
+                        throw new InvalidSpendException("CoinSpend verify failed");
+                    }
+
+                    if (!coinSpend.hasValidSignature()) {
+                        log.error(String.format("CoinSpend signature invalid, coinSpend: %s", coinSpend));
+                        //throw new InvalidSpendException("CoinSpend signature invalid");
+                    }
+
+                    System.out.println("coin randomness: " + coinToSpend);
+                    System.out.println("coin spend: " + coinSpend);
+                    System.out.println("private key: " + coinSpend.getPubKey().getPrivateKeyAsHex());
+
+                    add(coinSpend, coinToSpend.getCommitment().getCommitmentValue());
+
+                } catch (InvalidSpendException e) {
+                    log.info("InvalidSpendException", e);
+                    throw e;
+                } catch (Exception e) {
+                    log.info("Exception creating a spend", e);
+                    throw new InvalidSpendException(e);
                 }
             }
+        }else {
+            log.warn("Request returned null for {}" + pubcoinsMessage);
         }
+
     }
 
-    private Transaction add(Transaction transaction, CoinSpend coinSpend, BigInteger commitmentValue){
+    @Override
+    public void onResponseReceived(final PubcoinsMessage pubcoinsMessage) {
+        log.info("onResponseReceived: " + pubcoinsMessage.toString());
+        if (! requests.containsKey((int) pubcoinsMessage.getRequestNum())) return;
+        messagesQueue.offer(pubcoinsMessage);
+    }
+
+    private synchronized void add(CoinSpend coinSpend, BigInteger commitmentValue){
         // zc_spend input
         byte[] coinSpendBytes = coinSpend.bitcoinSerialize();
         log.info("Coin spend bytes length: " + coinSpendBytes.length);
@@ -195,6 +262,7 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
 
         log.info("program: " + Hex.toHexString(program));
         TransactionInput transactionInput = new TransactionInput(transaction.getParams(), transaction, program);
+
         //use nSequence as a shorthand lookup of denomination
         //NOTE that this should never be used in place of checking the value in the final blockchain acceptance/verification
         //of the transaction
@@ -205,7 +273,13 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
         List<TransactionInput> realInputs = new ArrayList<>();
 
         for (TransactionInput input : inputs) {
-            if (input.getConnectedOutput().isZcMint() &&
+            if (input.getConnectedOutput() == null){
+                log.info("Not connected input.. should be one of the new ones..");
+                realInputs.add(input);
+                continue;
+            }
+            boolean isZcMint = input.getConnectedOutput().isZcMint();
+            if (isZcMint &&
                     !( Utils.areBigIntegersEqual(input.getConnectedOutput().getScriptPubKey().getCommitmentValue(), commitmentValue)) ){
                 realInputs.add(input);
             }
@@ -220,7 +294,5 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
 
         System.out.println(transaction);
         System.out.println("Coin spend inputs program: " + Hex.toHexString(transaction.getInput(0).getScriptBytes()));
-
-        return transaction;
     }
 }

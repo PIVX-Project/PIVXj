@@ -14,6 +14,7 @@ public class PubcoinsMessage extends Message {
     private BigInteger accWitnessValue;
     private List<BigInteger> list;
     private long requestNum;
+    private boolean hasRequestFailed;
 
     public PubcoinsMessage(NetworkParameters params, byte[] payload, int offset, int lenght) throws ProtocolException {
         super(
@@ -40,12 +41,15 @@ public class PubcoinsMessage extends Message {
     protected void parse() throws ProtocolException {
         list = new ArrayList<>();
         requestNum = readUint32();
-        accValue = readBignum();
-        accWitnessValue = readBignum();
-        long size = readUint32();
-        for (int i = 0; i < size; i++) {
-            list.add(readBignum());
-        }
+        if (hasMoreBytes()) {
+            accValue = readBignum();
+            accWitnessValue = readBignum();
+            long size = readUint32();
+            for (int i = 0; i < size; i++) {
+                list.add(readBignum());
+            }
+        }else
+            hasRequestFailed = true;
         length = cursor;
     }
 
@@ -63,6 +67,10 @@ public class PubcoinsMessage extends Message {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public boolean isHasRequestFailed() {
+        return hasRequestFailed;
     }
 
     public List<BigInteger> getList() {

@@ -31,6 +31,7 @@ import com.google.common.io.Resources;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import sun.applet.Main;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -94,7 +95,7 @@ public class BuildCheckpoints {
 
         //params = TestNet3Params.get();
         //suffix = "-testnet";
-        params = TestNet3Params.get();
+        params = MainNetParams.get();
         suffix = "";
 
 
@@ -109,7 +110,7 @@ public class BuildCheckpoints {
                 return;
             }InetAddress.getLocalHost();
         } else {
-            ipAddress = InetAddress.getByName("202.5.21.31"); // InetAddress.getLocalHost();
+            ipAddress = InetAddress.getLocalHost(); //InetAddress.getByName("202.5.21.31"); // InetAddress.getLocalHost();
         }
         final PeerAddress peerAddress = new PeerAddress(ipAddress, params.getPort());
 
@@ -129,14 +130,17 @@ public class BuildCheckpoints {
         long now = new Date().getTime() / 1000;
         peerGroup.setFastCatchupTimeSecs(now);
 
-        final long timeAgo = now - (86400 * 170);//options.valueOf(daysFlag));
+        final long timeAgo = now - (86400 * options.valueOf(daysFlag));
         System.out.println("Checkpointing up to " + Utils.dateTimeFormat(timeAgo * 1000));
 
         chain.addNewBestBlockListener(Threading.SAME_THREAD, new NewBestBlockListener() {
             @Override
             public void notifyNewBestBlock(StoredBlock block) throws VerificationException {
                 int height = block.getHeight();
-                System.out.println("block height: "+block.getHeight());
+                //System.out.println("block height: "+block.getHeight());
+                if (height % 10000 == 0){
+                    System.out.println("height: " + height);
+                }
                 if (height % CoinDefinition.getIntervalCheckpoints() == 0 && block.getHeader().getTimeSeconds() <= timeAgo) {
                 //if(height == 201500){
                     System.out.println(String.format("Checkpointing block %s at height %d, time %s",
@@ -176,7 +180,7 @@ public class BuildCheckpoints {
         dataOutputStream.writeInt(0);  // Number of signatures to read. Do this later.
         digestOutputStream.on(true);
         dataOutputStream.writeInt(checkpoints.size());
-        ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE_ZEROCOIN);
         for (StoredBlock block : checkpoints.values()) {
             block.serializeCompact(buffer);
             dataOutputStream.write(buffer.array());
@@ -195,7 +199,7 @@ public class BuildCheckpoints {
         writer.println("TXT CHECKPOINTS 1");
         writer.println("0"); // Number of signatures to read. Do this later.
         writer.println(checkpoints.size());
-        ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE_ZEROCOIN);
         for (StoredBlock block : checkpoints.values()) {
             block.serializeCompact(buffer);
             writer.println(CheckpointManager.BASE64.encode(buffer.array()));

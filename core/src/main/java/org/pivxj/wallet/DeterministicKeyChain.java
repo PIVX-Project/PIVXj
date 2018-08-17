@@ -25,10 +25,12 @@ import com.zerocoinj.core.HashWriter;
 import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
 import com.zerocoinj.core.exceptions.InvalidSerialException;
+import com.zerocoinj.utils.ZUtils;
 import org.pivxj.core.*;
 import org.pivxj.crypto.*;
 import org.pivxj.script.Script;
 import org.pivxj.utils.Threading;
+import org.pivxj.wallet.exceptions.InvalidCoinException;
 import org.pivxj.wallet.listeners.KeyChainEventListener;
 
 import com.google.common.base.Stopwatch;
@@ -36,6 +38,7 @@ import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.crypto.params.KeyParameter;
+import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -50,6 +53,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static com.google.common.base.Preconditions.*;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.newLinkedList;
+import static org.pivxj.wallet.BasicKeyChain.serializeEncryptableItem;
 
 /**
  * <p>A deterministic key chain is a {@link KeyChain} that uses the
@@ -829,7 +833,7 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         // data (handling encryption along the way), and letting us patch it up with the extra data we care about.
         LinkedList<Protos.Key> entries = newLinkedList();
         if (seed != null) {
-            Protos.Key.Builder mnemonicEntry = BasicKeyChain.serializeEncryptableItem(seed);
+            Protos.Key.Builder mnemonicEntry = serializeEncryptableItem(seed);
             mnemonicEntry.setType(Protos.Key.Type.DETERMINISTIC_MNEMONIC);
             serializeSeedEncryptableItem(seed, mnemonicEntry);
             entries.add(mnemonicEntry.build());
@@ -884,13 +888,19 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 .setHeight(zCoin.getHeight())
                 .setSerial(ByteString.copyFrom(Utils.serializeBigInteger(zCoin.getSerial())))
                 .setVersion(0);
+
+        ECKey ecKey = zCoin.getKeyPair();
+        Protos.Key.Builder protoKey = serializeEncryptableItem(ecKey);
+        protoKey.setPublicKey(ByteString.copyFrom(ecKey.getPubKey()));
+        zpiv.setKey(protoKey);
+
         if (zCoin.getParentTxId() != null){
             zpiv.setParentTxId(ByteString.copyFrom(zCoin.getParentTxId().getReversedBytes()));
         }
         return zpiv;
     }
 
-    private static ZCoin fromProto(Protos.Zpiv zpiv, ECKey key) {
+    private static ZCoin fromProto(Protos.Zpiv zpiv, @Nullable KeyCrypter keyCrypter) throws UnreadableWalletException {
         BigInteger content = Utils.unserializeBiginteger(zpiv.getCommitment().getContent().toByteArray());
         BigInteger contentValue = Utils.unserializeBiginteger(zpiv.getCommitment().getContentValue().toByteArray());
         BigInteger randomness = Utils.unserializeBiginteger(zpiv.getCommitment().getRandomness().toByteArray());
@@ -898,12 +908,37 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         Commitment commitment = new Commitment(content, contentValue, randomness);
         BigInteger serial = Utils.unserializeBiginteger(zpiv.getSerial().toByteArray());
         CoinDenomination den = CoinDenomination.fromValue(zpiv.getDen());
+
+        // key
+        Protos.Key key = zpiv.getKey();
+        boolean encrypted = key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES;
+        byte[] priv = key.hasSecretBytes() ? key.getSecretBytes().toByteArray() : null;
+        if (!key.hasPublicKey())
+            throw new UnreadableWalletException("Zpiv public key missing");
+        byte[] pub = key.getPublicKey().toByteArray();
+        ECKey ecKey;
+        if (encrypted) {
+            checkState(keyCrypter != null, "This wallet is encrypted but encrypt() was not called prior to deserialization");
+            if (!key.hasEncryptedData())
+                throw new UnreadableWalletException("Encrypted private key data missing");
+            Protos.EncryptedData proto = key.getEncryptedData();
+            EncryptedData e = new EncryptedData(proto.getInitialisationVector().toByteArray(),
+                    proto.getEncryptedPrivateKey().toByteArray());
+            ecKey = ECKey.fromEncrypted(e, keyCrypter, pub);
+        } else {
+            if (priv != null)
+                ecKey = ECKey.fromPrivateAndPrecalculatedPublic(priv, pub);
+            else
+                ecKey = ECKey.fromPublicOnly(pub);
+        }
+        ecKey.setCreationTimeSeconds(key.getCreationTimestamp() / 1000);
+
         return new ZCoin(
                 Context.get().zerocoinContext,
                 serial,
                 commitment,
                 den,
-                key
+                ecKey
         );
     }
 
@@ -1092,8 +1127,8 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 chain.basicKeyChain.importKey(detkey);
 
                 if (key.hasZpiv()){
-                    ZCoin associatedCoin = fromProto(key.getZpiv(), detkey);
-                    chain.putAssociatedCoin(associatedCoin);
+                    ZCoin associatedCoin = fromProto(key.getZpiv(), crypter);
+                    chain.putAssociatedCoin(associatedCoin, detkey);
                 }
             }
         }
@@ -1107,9 +1142,9 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         return chains;
     }
 
-    private void putAssociatedCoin(ZCoin associatedCoin) {
-        if (! (associatedCoin.getKeyPair() instanceof DeterministicKey)) throw new IllegalArgumentException("Trying to add a non deterministic key");
-        DeterministicKey key = (DeterministicKey) associatedCoin.getKeyPair();
+    private void putAssociatedCoin(ZCoin associatedCoin, ECKey associatedKey) {
+        if (! (associatedKey instanceof DeterministicKey)) throw new IllegalArgumentException("Trying to add a non deterministic key");
+        DeterministicKey key = (DeterministicKey) associatedKey;//associatedCoin.getKeyPair();
         // Check if the key exists
         checkNotNull(getKeyByPath(key.getPath()),"Associated key not exists");
         if (zcoins.get(key) == null)
@@ -1234,7 +1269,20 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         try {
             checkArgument(size >= numBloomFilterEntries());
             maybeLookAhead();
-            return basicKeyChain.getFilter(size, falsePositiveRate, tweak);
+            BloomFilter zcFilter = null;
+            if (isZerocoinPath()) {
+                zcFilter = new BloomFilter(size, falsePositiveRate, tweak, BloomFilter.BloomUpdate.UPDATE_ALL);
+                for (ZCoin zCoin : zcoins.values()) {
+                    // for outputs
+                    zcFilter.insert(Utils.serializeBigInteger(zCoin.getCommitment().getCommitmentValue()));
+                    // for inputs
+                    zcFilter.insert(Utils.serializeBigInteger(zCoin.getSerial()));
+                }
+            }
+            BloomFilter filter = basicKeyChain.getFilter(size, falsePositiveRate, tweak);
+            if (zcFilter != null)
+                filter.merge(zcFilter);
+            return filter;
         } finally {
             lock.unlock();
         }
@@ -1354,7 +1402,6 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 needed, parent.getPathAsString(), issued, lookaheadSize, lookaheadThreshold, numChildren, createZcoins);
 
         List<DeterministicKey> result  = new ArrayList<>(needed);
-        ExecutorService executor = null;
         final Stopwatch watch = Stopwatch.createStarted();
         int nextChild = numChildren;
         for (int i = 0; i < needed; i++) {
@@ -1364,11 +1411,8 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
             result.add(key);
             nextChild = key.getChildNumber().num() + 1;
             if (createZcoins){
-                try {
-                    generateZcoin(key);
-                } catch (InvalidSerialException e) {
-                    log.info("invalid serial", e);
-                }
+                generateZcoin(key);
+                //log.info("Valid coin created, pubkey: " + key.getPublicKeyAsHex());
             }
         }
         watch.stop();
@@ -1376,12 +1420,32 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         return result;
     }
 
-    private void generateZcoin(DeterministicKey key) throws InvalidSerialException {
+    private void generateZcoin(DeterministicKey key){
         if (zcoins.get(key) != null) return;
         ZerocoinContext context = Context.get().zerocoinContext;
         Sha256Hash trimmedRandomness = Sha256Hash.twiceOf(key.getPrivKeyBytes()); // Here the core is using a Sha512..
         BigInteger randomness = HashWriter.toUint256(trimmedRandomness.getReversedBytes()).mod(context.coinCommitmentGroup.getGroupOrder());
-        BigInteger serial =  ZCoin.generateSerial(key);
+        BigInteger serial = null;
+        // Serial
+        boolean isValid = false;
+        ECKey usedKey = key;
+        byte[] serialSeed = usedKey.getPrivKeyBytes();
+        final Stopwatch watch = Stopwatch.createStarted();
+        do {
+            try {
+                serial = ZCoin.generateSerial(usedKey);
+                isValid = true;
+            }catch (Exception e){
+                // swallow..
+                log.info("invalid serial creation, loop");
+                // TODO: Remember to remove this serialSeed from memory..
+                serialSeed = Sha256Hash.twiceOf(serialSeed).getReversedBytes();
+                usedKey = ECKey.fromPrivate(serialSeed);
+            }
+        } while (!isValid);
+        watch.stop();
+        log.info("Serial creation, took {}", watch);
+
         Commitment commitment = new Commitment(serial, randomness, context.coinCommitmentGroup);
 
         BigInteger attempts = BigInteger.ZERO;
@@ -1399,14 +1463,27 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
             commitment = new Commitment(serial, randomness, context.coinCommitmentGroup);
         }
 
-        putAssociatedCoin(
-                ZCoin.mintCoinH(
-                        Context.get().zerocoinContext,
-                        key,
-                        CoinDenomination.ZQ_ERROR,
-                        commitment
-                )
+        usedKey = ECKey.fromPrivate(usedKey.getPrivKeyBytes());
+        ZCoin zCoin = ZCoin.mintCoinUnchecked(
+                Context.get().zerocoinContext,
+                usedKey,
+                CoinDenomination.ZQ_ERROR,
+                commitment
         );
+
+        if (!zCoin.validate()){
+            throw new InvalidCoinException("Invalid zcoin");
+        }
+
+        // Double check
+        byte[] hashedPubKeyBites = Sha256Hash.twiceOf(zCoin.getKeyPair().getPubKey()).getReversedBytes();
+        BigInteger hashedPubKey = (new BigInteger(1, hashedPubKeyBites)).shiftRight(ZCoin.V2_BITSHIFT);
+        BigInteger adjustedSerial = ZCoin.getAdjustedSerial(zCoin.getSerial());
+        if (!ZUtils.equals(hashedPubKey, adjustedSerial)) {
+            throw new InvalidCoinException("Invalid zcoin, public key is not equals to the public key that generated the serial");
+        }
+
+        putAssociatedCoin(zCoin, key);
     }
 
     /** Housekeeping call to call when lookahead might be needed.  Normally called automatically by KeychainGroup. */
@@ -1546,6 +1623,15 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         return zcoins.get(key);
     }
 
+    public ZCoin getZcoinsAssociatedRealKey(ECKey key) {
+        for (ZCoin zCoin : zcoins.values()) {
+            if (zCoin.getKeyPair().equals(key)){
+                return zCoin;
+            }
+        }
+        return null;
+    }
+
     public List<ZCoin> getZcoins(int amount) {
         List<ZCoin> createdZCoins = new ArrayList<>();
         for (ZCoin zCoin : zcoins.values()) {
@@ -1554,9 +1640,18 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         return createdZCoins;
     }
 
+    public ZCoin getZcoinsAssociatedToSerial(BigInteger serial){
+        for (ZCoin zCoin : zcoins.values()) {
+            if (Utils.areBigIntegersEqual(zCoin.getSerial(), serial)){
+                return zCoin;
+            }
+        }
+        return null;
+    }
+
     public ZCoin getZcoinsAssociated(BigInteger commitmentToSpend) {
         for (ZCoin zCoin : zcoins.values()) {
-            if (Utils.areBigIntegersEqual(zCoin.getCommitment().getCommitmentValue(),commitmentToSpend)){
+            if (Utils.areBigIntegersEqual(zCoin.getCommitment().getCommitmentValue(), commitmentToSpend)){
                 return zCoin;
             }
         }
@@ -1566,6 +1661,15 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
     public boolean isCommitmentValueMine(BigInteger value) {
         for (ZCoin zCoin : zcoins.values()) {
             if (Utils.areBigIntegersEqual(zCoin.getCommitment().getCommitmentValue(), value)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isCoinSerialMine(BigInteger serial) {
+        for (ZCoin zCoin : zcoins.values()) {
+            if (Utils.areBigIntegersEqual(zCoin.getSerial(), serial)){
                 return true;
             }
         }

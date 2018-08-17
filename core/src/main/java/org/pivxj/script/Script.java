@@ -18,12 +18,15 @@
 
 package org.pivxj.script;
 
+import com.zerocoinj.core.CoinSpend;
+import com.zerocoinj.core.context.ZerocoinContext;
 import org.pivxj.core.*;
 import org.pivxj.crypto.TransactionSignature;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.crypto.digests.RIPEMD160Digest;
+import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
@@ -177,7 +180,7 @@ public class Script {
      * Bitcoin Core does something similar.</p>
      */
     private void parse(byte[] program) throws ScriptException {
-        chunks = new ArrayList<ScriptChunk>(5);   // Common size.
+        chunks = new ArrayList<>(5);   // Common size.
         ByteArrayInputStream bis = new ByteArrayInputStream(program);
         int initialSize = bis.available();
         while (bis.available() > 0) {
@@ -220,12 +223,6 @@ public class Script {
                 if (c.equals(chunk)) chunk = c;
             }
             chunks.add(chunk);
-
-            if (opcode == OP_ZEROCOINSPEND) {
-                //Zerocoinspend has no further op codes.
-
-                break;
-            }
         }
     }
 
@@ -315,10 +312,26 @@ public class Script {
      *
      */
     public BigInteger getCommitmentValue() {
+        if (!isZcMint()){
+            throw new ScriptException("Script is not a zc_mint");
+        }
         if (chunks.size() != 3) {
             throw new ScriptException("Script not of right size, expecting 2 but got " + chunks.size());
         }
         return Utils.unserializeBiginteger(chunks.get(2).data);
+    }
+
+    public CoinSpend getCoinSpend(NetworkParameters params, ZerocoinContext zerocoinContext) {
+        if (!isZcSpend()) throw new ScriptException("Script is not a zc_spend");
+        byte[] coinSpendBytes = getChunks().get(0).data;
+        if (coinSpendBytes == null) throw new ScriptException("Invalid zc_spend script");
+        // now read the length
+        int size = coinSpendBytes.length - 3;
+        byte[] coinSpend = new byte[size];
+        System.arraycopy(coinSpendBytes,3, coinSpend, 0, size);
+        //System.out.println(Hex.toHexString(coinSpendBytes));
+        //System.out.println(Hex.toHexString(coinSpend));
+        return CoinSpend.parse(params, zerocoinContext, coinSpend);
     }
 
     /**

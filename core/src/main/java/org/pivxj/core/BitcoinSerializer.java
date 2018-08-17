@@ -272,6 +272,9 @@ public class BitcoinSerializer extends MessageSerializer {
             return new MasternodeBroadcast(params, payloadBytes);
         } else if( command.equals("mnp")) {
             return new MasternodePing(params, payloadBytes);
+        } else if (command.equals("mnget")){
+            log.warn("mnget message arrived");
+            return null;
         } else if (command.equals("spork")) {
             return new SporkMessage(params, payloadBytes, 0);
         } else if(command.equals("ssc")) {

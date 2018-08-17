@@ -18,6 +18,8 @@
 package org.pivxj.core;
 
 import com.zerocoinj.core.CoinDenomination;
+import com.zerocoinj.core.CoinSpend;
+import com.zerocoinj.core.ZCoin;
 import org.pivxj.script.Script;
 import org.pivxj.wallet.DefaultRiskAnalysis;
 import org.pivxj.wallet.KeyBag;
@@ -25,6 +27,9 @@ import org.pivxj.wallet.RedeemData;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import org.pivxj.wallet.Wallet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -45,6 +50,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * <p>Instances of this class are not safe for use by multiple threads.</p>
  */
 public class TransactionInput extends ChildMessage {
+
+    private final static Logger logger = LoggerFactory.getLogger(TransactionInput.class);
+
     /** Magic sequence number that indicates there is no sequence number. */
     public static final long NO_SEQUENCE = 0xFFFFFFFFL;
     private static final byte[] EMPTY_ARRAY = new byte[0];
@@ -172,8 +180,7 @@ public class TransactionInput extends ChildMessage {
      */
     public boolean isZcspend() {
         try {
-            CoinDenomination.fromValue((int) sequence);
-            return true;
+            return getScriptSig().isZcSpend();
         }catch (Exception e){
             // Nothing..
         }
@@ -319,8 +326,16 @@ public class TransactionInput extends ChildMessage {
     @Nullable
     TransactionOutput getConnectedOutput(Map<Sha256Hash, Transaction> transactions) {
         Transaction tx = transactions.get(outpoint.getHash());
-        if (tx == null)
-            return null;
+        if (tx == null){
+            if (outpoint.getPrivateHash() != null){
+                tx = transactions.get(outpoint.getPrivateHash());
+            }
+            if (tx == null && outpoint.fromTx != null){
+                tx = transactions.get(outpoint.fromTx.getHash());;
+            }
+            if (tx == null) return null;
+            return tx.getOutputs().get((int) outpoint.getPrivateIndex());
+        }
         return tx.getOutputs().get((int) outpoint.getIndex());
     }
 
@@ -348,12 +363,32 @@ public class TransactionInput extends ChildMessage {
      * @param mode   Whether to abort if there's a pre-existing connection or not.
      * @return NO_SUCH_TX if the prevtx wasn't found, ALREADY_SPENT if there was a conflict, SUCCESS if not.
      */
-    public ConnectionResult connect(Map<Sha256Hash, Transaction> transactions, ConnectMode mode) {
+    public ConnectionResult connect(Wallet wallet, Map<Sha256Hash, Transaction> transactions, ConnectMode mode) {
         Transaction tx = transactions.get(outpoint.getHash());
         if (tx == null) {
+            // if the input is a zc_spend then the way of connect the input is different
+            if (isZcspend()){
+                CoinSpend coinSpend = getScriptSig().getCoinSpend(params, Context.zerocoinContext);
+                ZCoin zCoin = wallet.getActiveKeyChain().getZcoinsAssociatedToSerial(coinSpend.getCoinSerialNumber());
+                if (zCoin != null){
+                    // now i can get the tx that minted this value
+                    for (Transaction transaction : transactions.values()) {
+                        for (TransactionOutput output : transaction.getOutputs()) {
+                            if (output.isZcMint() && output.getScriptPubKey().getCommitmentValue().equals(zCoin.getCommitment().getCommitmentValue())){
+                                tx = transaction;
+                                break;
+                            }
+                        }
+                        if (tx != null) break;
+                    }
+                }
+                if (tx != null){
+                    return connect(tx, zCoin ,mode);
+                }
+            }
             return TransactionInput.ConnectionResult.NO_SUCH_TX;
         }
-        return connect(tx, mode);
+        return connect(tx, null, mode);
     }
 
     /**
@@ -365,11 +400,26 @@ public class TransactionInput extends ChildMessage {
      * @param mode   Whether to abort if there's a pre-existing connection or not.
      * @return NO_SUCH_TX if transaction is not the prevtx, ALREADY_SPENT if there was a conflict, SUCCESS if not.
      */
-    public ConnectionResult connect(Transaction transaction, ConnectMode mode) {
-        if (!transaction.getHash().equals(outpoint.getHash()))
-            return ConnectionResult.NO_SUCH_TX;
-        checkElementIndex((int) outpoint.getIndex(), transaction.getOutputs().size(), "Corrupt transaction");
-        TransactionOutput out = transaction.getOutput((int) outpoint.getIndex());
+    public ConnectionResult connect(Transaction transaction, ZCoin zCoin ,ConnectMode mode) {
+        TransactionOutput out = null;
+        long privateIndex = -1;
+        if (outpoint.getHash().equals(Sha256Hash.ZERO_HASH)){
+            // This is a zc_spend
+            logger.info("Connecting zc_spend..");
+            for (TransactionOutput output : transaction.getOutputs()) {
+                if (output.isZcMint() && output.getScriptPubKey().getCommitmentValue().equals(zCoin.getCommitment().getCommitmentValue())){
+                    out = output;
+                    break;
+                }
+            }
+            if (out == null) return ConnectionResult.NO_SUCH_TX;
+            privateIndex = out.getIndex();
+        }else {
+            if (!transaction.getHash().equals(outpoint.getHash()))
+                return ConnectionResult.NO_SUCH_TX;
+            checkElementIndex((int) outpoint.getIndex(), transaction.getOutputs().size(), "Corrupt transaction");
+            out = transaction.getOutput((int) outpoint.getIndex());
+        }
         if (!out.isAvailableForSpending()) {
             if (getParentTransaction().equals(outpoint.fromTx)) {
                 // Already connected.
@@ -381,7 +431,11 @@ public class TransactionInput extends ChildMessage {
                 return TransactionInput.ConnectionResult.ALREADY_SPENT;
             }
         }
-        connect(out);
+        if (privateIndex == -1){
+            connect(out);
+        }else {
+            connect(out, privateIndex, transaction.getHash());
+        }
         return TransactionInput.ConnectionResult.SUCCESS;
     }
 
@@ -390,6 +444,12 @@ public class TransactionInput extends ChildMessage {
         outpoint.fromTx = out.getParentTransaction();
         out.markAsSpent(this);
         value = out.getValue();
+    }
+
+    public void connect(TransactionOutput out, long privateIndex, Sha256Hash privateParentHash){
+        connect(out);
+        outpoint.setPrivateIndex(privateIndex);
+        outpoint.setPrivateHash(privateParentHash);
     }
 
     /**
@@ -519,7 +579,7 @@ public class TransactionInput extends ChildMessage {
                 s.append(": COINBASE");
             } else {
                 if (isZcspend()){
-                    s.append(" for [").append(outpoint).append("]: ").append(getScriptSig());
+                    s.append(" for [").append(outpoint.toPrivateString()).append("]: ").append(getScriptSig());
 
                     String flags = hasSequence() ? "sequence: " + sequence : null;
                     if (flags != null)

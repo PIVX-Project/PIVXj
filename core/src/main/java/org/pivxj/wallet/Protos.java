@@ -2956,6 +2956,19 @@ public final class Protos {
      * <code>optional int64 height = 6;</code>
      */
     long getHeight();
+
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    boolean hasKey();
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    org.pivxj.wallet.Protos.Key getKey();
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    org.pivxj.wallet.Protos.KeyOrBuilder getKeyOrBuilder();
   }
   /**
    * Protobuf type {@code wallet.Zpiv}
@@ -3050,6 +3063,19 @@ public final class Protos {
             case 48: {
               bitField0_ |= 0x00000020;
               height_ = input.readInt64();
+              break;
+            }
+            case 58: {
+              org.pivxj.wallet.Protos.Key.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000040) == 0x00000040)) {
+                subBuilder = key_.toBuilder();
+              }
+              key_ = input.readMessage(org.pivxj.wallet.Protos.Key.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(key_);
+                key_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000040;
               break;
             }
           }
@@ -3188,6 +3214,27 @@ public final class Protos {
       return height_;
     }
 
+    public static final int KEY_FIELD_NUMBER = 7;
+    private org.pivxj.wallet.Protos.Key key_;
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    public boolean hasKey() {
+      return ((bitField0_ & 0x00000040) == 0x00000040);
+    }
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    public org.pivxj.wallet.Protos.Key getKey() {
+      return key_;
+    }
+    /**
+     * <code>required .wallet.Key key = 7;</code>
+     */
+    public org.pivxj.wallet.Protos.KeyOrBuilder getKeyOrBuilder() {
+      return key_;
+    }
+
     private void initFields() {
       version_ = 0;
       commitment_ = org.pivxj.wallet.Protos.Commitment.getDefaultInstance();
@@ -3195,6 +3242,7 @@ public final class Protos {
       den_ = 0;
       parentTxId_ = com.google.protobuf.ByteString.EMPTY;
       height_ = 0L;
+      key_ = org.pivxj.wallet.Protos.Key.getDefaultInstance();
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -3210,7 +3258,15 @@ public final class Protos {
         memoizedIsInitialized = 0;
         return false;
       }
+      if (!hasKey()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
       if (!getCommitment().isInitialized()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!getKey().isInitialized()) {
         memoizedIsInitialized = 0;
         return false;
       }
@@ -3238,6 +3294,9 @@ public final class Protos {
       }
       if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeInt64(6, height_);
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        output.writeMessage(7, key_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -3271,6 +3330,10 @@ public final class Protos {
       if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(6, height_);
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(7, key_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -3387,6 +3450,7 @@ public final class Protos {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
           getCommitmentFieldBuilder();
+          getKeyFieldBuilder();
         }
       }
       private static Builder create() {
@@ -3411,6 +3475,12 @@ public final class Protos {
         bitField0_ = (bitField0_ & ~0x00000010);
         height_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000020);
+        if (keyBuilder_ == null) {
+          key_ = org.pivxj.wallet.Protos.Key.getDefaultInstance();
+        } else {
+          keyBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -3467,6 +3537,14 @@ public final class Protos {
           to_bitField0_ |= 0x00000020;
         }
         result.height_ = height_;
+        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        if (keyBuilder_ == null) {
+          result.key_ = key_;
+        } else {
+          result.key_ = keyBuilder_.build();
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -3501,6 +3579,9 @@ public final class Protos {
         if (other.hasHeight()) {
           setHeight(other.getHeight());
         }
+        if (other.hasKey()) {
+          mergeKey(other.getKey());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -3514,7 +3595,15 @@ public final class Protos {
           
           return false;
         }
+        if (!hasKey()) {
+          
+          return false;
+        }
         if (!getCommitment().isInitialized()) {
+          
+          return false;
+        }
+        if (!getKey().isInitialized()) {
           
           return false;
         }
@@ -3820,6 +3909,122 @@ public final class Protos {
         height_ = 0L;
         onChanged();
         return this;
+      }
+
+      private org.pivxj.wallet.Protos.Key key_ = org.pivxj.wallet.Protos.Key.getDefaultInstance();
+      private com.google.protobuf.SingleFieldBuilder<
+          org.pivxj.wallet.Protos.Key, org.pivxj.wallet.Protos.Key.Builder, org.pivxj.wallet.Protos.KeyOrBuilder> keyBuilder_;
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public boolean hasKey() {
+        return ((bitField0_ & 0x00000040) == 0x00000040);
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public org.pivxj.wallet.Protos.Key getKey() {
+        if (keyBuilder_ == null) {
+          return key_;
+        } else {
+          return keyBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public Builder setKey(org.pivxj.wallet.Protos.Key value) {
+        if (keyBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          key_ = value;
+          onChanged();
+        } else {
+          keyBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public Builder setKey(
+          org.pivxj.wallet.Protos.Key.Builder builderForValue) {
+        if (keyBuilder_ == null) {
+          key_ = builderForValue.build();
+          onChanged();
+        } else {
+          keyBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public Builder mergeKey(org.pivxj.wallet.Protos.Key value) {
+        if (keyBuilder_ == null) {
+          if (((bitField0_ & 0x00000040) == 0x00000040) &&
+              key_ != org.pivxj.wallet.Protos.Key.getDefaultInstance()) {
+            key_ =
+              org.pivxj.wallet.Protos.Key.newBuilder(key_).mergeFrom(value).buildPartial();
+          } else {
+            key_ = value;
+          }
+          onChanged();
+        } else {
+          keyBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public Builder clearKey() {
+        if (keyBuilder_ == null) {
+          key_ = org.pivxj.wallet.Protos.Key.getDefaultInstance();
+          onChanged();
+        } else {
+          keyBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
+        return this;
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public org.pivxj.wallet.Protos.Key.Builder getKeyBuilder() {
+        bitField0_ |= 0x00000040;
+        onChanged();
+        return getKeyFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      public org.pivxj.wallet.Protos.KeyOrBuilder getKeyOrBuilder() {
+        if (keyBuilder_ != null) {
+          return keyBuilder_.getMessageOrBuilder();
+        } else {
+          return key_;
+        }
+      }
+      /**
+       * <code>required .wallet.Key key = 7;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilder<
+          org.pivxj.wallet.Protos.Key, org.pivxj.wallet.Protos.Key.Builder, org.pivxj.wallet.Protos.KeyOrBuilder> 
+          getKeyFieldBuilder() {
+        if (keyBuilder_ == null) {
+          keyBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+              org.pivxj.wallet.Protos.Key, org.pivxj.wallet.Protos.Key.Builder, org.pivxj.wallet.Protos.KeyOrBuilder>(
+                  getKey(),
+                  getParentForChildren(),
+                  isClean());
+          key_ = null;
+        }
+        return keyBuilder_;
       }
 
       // @@protoc_insertion_point(builder_scope:wallet.Zpiv)
@@ -6703,6 +6908,40 @@ public final class Protos {
      * </pre>
      */
     long getValue();
+
+    /**
+     * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+     *
+     * <pre>
+     * Hash of the transaction this input is using.
+     * </pre>
+     */
+    boolean hasPrivateTransactionOutPointHash();
+    /**
+     * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+     *
+     * <pre>
+     * Hash of the transaction this input is using.
+     * </pre>
+     */
+    com.google.protobuf.ByteString getPrivateTransactionOutPointHash();
+
+    /**
+     * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+     *
+     * <pre>
+     * Index of transaction output used by this input.
+     * </pre>
+     */
+    boolean hasPrivateTransactionOutPointIndex();
+    /**
+     * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+     *
+     * <pre>
+     * Index of transaction output used by this input.
+     * </pre>
+     */
+    int getPrivateTransactionOutPointIndex();
   }
   /**
    * Protobuf type {@code wallet.TransactionInput}
@@ -6779,6 +7018,16 @@ public final class Protos {
             case 40: {
               bitField0_ |= 0x00000010;
               value_ = input.readInt64();
+              break;
+            }
+            case 50: {
+              bitField0_ |= 0x00000020;
+              privateTransactionOutPointHash_ = input.readBytes();
+              break;
+            }
+            case 56: {
+              bitField0_ |= 0x00000040;
+              privateTransactionOutPointIndex_ = input.readUInt32();
               break;
             }
           }
@@ -6936,12 +7185,60 @@ public final class Protos {
       return value_;
     }
 
+    public static final int PRIVATE_TRANSACTION_OUT_POINT_HASH_FIELD_NUMBER = 6;
+    private com.google.protobuf.ByteString privateTransactionOutPointHash_;
+    /**
+     * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+     *
+     * <pre>
+     * Hash of the transaction this input is using.
+     * </pre>
+     */
+    public boolean hasPrivateTransactionOutPointHash() {
+      return ((bitField0_ & 0x00000020) == 0x00000020);
+    }
+    /**
+     * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+     *
+     * <pre>
+     * Hash of the transaction this input is using.
+     * </pre>
+     */
+    public com.google.protobuf.ByteString getPrivateTransactionOutPointHash() {
+      return privateTransactionOutPointHash_;
+    }
+
+    public static final int PRIVATE_TRANSACTION_OUT_POINT_INDEX_FIELD_NUMBER = 7;
+    private int privateTransactionOutPointIndex_;
+    /**
+     * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+     *
+     * <pre>
+     * Index of transaction output used by this input.
+     * </pre>
+     */
+    public boolean hasPrivateTransactionOutPointIndex() {
+      return ((bitField0_ & 0x00000040) == 0x00000040);
+    }
+    /**
+     * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+     *
+     * <pre>
+     * Index of transaction output used by this input.
+     * </pre>
+     */
+    public int getPrivateTransactionOutPointIndex() {
+      return privateTransactionOutPointIndex_;
+    }
+
     private void initFields() {
       transactionOutPointHash_ = com.google.protobuf.ByteString.EMPTY;
       transactionOutPointIndex_ = 0;
       scriptBytes_ = com.google.protobuf.ByteString.EMPTY;
       sequence_ = 0;
       value_ = 0L;
+      privateTransactionOutPointHash_ = com.google.protobuf.ByteString.EMPTY;
+      privateTransactionOutPointIndex_ = 0;
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -6983,6 +7280,12 @@ public final class Protos {
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeInt64(5, value_);
       }
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        output.writeBytes(6, privateTransactionOutPointHash_);
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        output.writeUInt32(7, privateTransactionOutPointIndex_);
+      }
       getUnknownFields().writeTo(output);
     }
 
@@ -7011,6 +7314,14 @@ public final class Protos {
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(5, value_);
+      }
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(6, privateTransactionOutPointHash_);
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt32Size(7, privateTransactionOutPointIndex_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -7139,6 +7450,10 @@ public final class Protos {
         bitField0_ = (bitField0_ & ~0x00000008);
         value_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000010);
+        privateTransactionOutPointHash_ = com.google.protobuf.ByteString.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
+        privateTransactionOutPointIndex_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -7187,6 +7502,14 @@ public final class Protos {
           to_bitField0_ |= 0x00000010;
         }
         result.value_ = value_;
+        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+          to_bitField0_ |= 0x00000020;
+        }
+        result.privateTransactionOutPointHash_ = privateTransactionOutPointHash_;
+        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        result.privateTransactionOutPointIndex_ = privateTransactionOutPointIndex_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -7217,6 +7540,12 @@ public final class Protos {
         }
         if (other.hasValue()) {
           setValue(other.getValue());
+        }
+        if (other.hasPrivateTransactionOutPointHash()) {
+          setPrivateTransactionOutPointHash(other.getPrivateTransactionOutPointHash());
+        }
+        if (other.hasPrivateTransactionOutPointIndex()) {
+          setPrivateTransactionOutPointIndex(other.getPrivateTransactionOutPointIndex());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -7499,6 +7828,105 @@ public final class Protos {
       public Builder clearValue() {
         bitField0_ = (bitField0_ & ~0x00000010);
         value_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.ByteString privateTransactionOutPointHash_ = com.google.protobuf.ByteString.EMPTY;
+      /**
+       * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+       *
+       * <pre>
+       * Hash of the transaction this input is using.
+       * </pre>
+       */
+      public boolean hasPrivateTransactionOutPointHash() {
+        return ((bitField0_ & 0x00000020) == 0x00000020);
+      }
+      /**
+       * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+       *
+       * <pre>
+       * Hash of the transaction this input is using.
+       * </pre>
+       */
+      public com.google.protobuf.ByteString getPrivateTransactionOutPointHash() {
+        return privateTransactionOutPointHash_;
+      }
+      /**
+       * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+       *
+       * <pre>
+       * Hash of the transaction this input is using.
+       * </pre>
+       */
+      public Builder setPrivateTransactionOutPointHash(com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        privateTransactionOutPointHash_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional bytes private_transaction_out_point_hash = 6;</code>
+       *
+       * <pre>
+       * Hash of the transaction this input is using.
+       * </pre>
+       */
+      public Builder clearPrivateTransactionOutPointHash() {
+        bitField0_ = (bitField0_ & ~0x00000020);
+        privateTransactionOutPointHash_ = getDefaultInstance().getPrivateTransactionOutPointHash();
+        onChanged();
+        return this;
+      }
+
+      private int privateTransactionOutPointIndex_ ;
+      /**
+       * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+       *
+       * <pre>
+       * Index of transaction output used by this input.
+       * </pre>
+       */
+      public boolean hasPrivateTransactionOutPointIndex() {
+        return ((bitField0_ & 0x00000040) == 0x00000040);
+      }
+      /**
+       * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+       *
+       * <pre>
+       * Index of transaction output used by this input.
+       * </pre>
+       */
+      public int getPrivateTransactionOutPointIndex() {
+        return privateTransactionOutPointIndex_;
+      }
+      /**
+       * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+       *
+       * <pre>
+       * Index of transaction output used by this input.
+       * </pre>
+       */
+      public Builder setPrivateTransactionOutPointIndex(int value) {
+        bitField0_ |= 0x00000040;
+        privateTransactionOutPointIndex_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional uint32 private_transaction_out_point_index = 7;</code>
+       *
+       * <pre>
+       * Index of transaction output used by this input.
+       * </pre>
+       */
+      public Builder clearPrivateTransactionOutPointIndex() {
+        bitField0_ = (bitField0_ & ~0x00000040);
+        privateTransactionOutPointIndex_ = 0;
         onChanged();
         return this;
       }
@@ -21974,88 +22402,91 @@ public final class Protos {
       "s\030\003 \001(\r\022\026\n\016lookahead_size\030\004 \001(\r\022\023\n\013isFol" +
       "lowing\030\005 \001(\010\022\036\n\023sigsRequiredToSpend\030\006 \001(" +
       "\r:\0011\"G\n\nCommitment\022\017\n\007content\030\001 \002(\014\022\022\n\nr" +
-      "andomness\030\002 \002(\014\022\024\n\014contentValue\030\003 \002(\014\"\200\001",
+      "andomness\030\002 \002(\014\022\024\n\014contentValue\030\003 \002(\014\"\232\001",
       "\n\004Zpiv\022\017\n\007version\030\001 \001(\005\022&\n\ncommitment\030\002 " +
       "\002(\0132\022.wallet.Commitment\022\016\n\006serial\030\003 \002(\014\022" +
       "\013\n\003den\030\004 \001(\005\022\022\n\nparentTxId\030\005 \001(\014\022\016\n\006heig" +
-      "ht\030\006 \001(\003\"\266\003\n\003Key\022\036\n\004type\030\001 \002(\0162\020.wallet." +
-      "Key.Type\022\024\n\014secret_bytes\030\002 \001(\014\022-\n\016encryp" +
-      "ted_data\030\006 \001(\0132\025.wallet.EncryptedData\022\022\n" +
-      "\npublic_key\030\003 \001(\014\022\r\n\005label\030\004 \001(\t\022\032\n\022crea" +
-      "tion_timestamp\030\005 \001(\003\0223\n\021deterministic_ke" +
-      "y\030\007 \001(\0132\030.wallet.DeterministicKey\022\032\n\022det" +
-      "erministic_seed\030\010 \001(\014\022;\n\034encrypted_deter",
-      "ministic_seed\030\t \001(\0132\025.wallet.EncryptedDa" +
-      "ta\022\032\n\004zpiv\030\n \001(\0132\014.wallet.Zpiv\"a\n\004Type\022\014" +
-      "\n\010ORIGINAL\020\001\022\030\n\024ENCRYPTED_SCRYPT_AES\020\002\022\032" +
-      "\n\026DETERMINISTIC_MNEMONIC\020\003\022\025\n\021DETERMINIS" +
-      "TIC_KEY\020\004\"5\n\006Script\022\017\n\007program\030\001 \002(\014\022\032\n\022" +
-      "creation_timestamp\030\002 \002(\003\"\222\001\n\020Transaction" +
-      "Input\022\"\n\032transaction_out_point_hash\030\001 \002(" +
-      "\014\022#\n\033transaction_out_point_index\030\002 \002(\r\022\024" +
-      "\n\014script_bytes\030\003 \002(\014\022\020\n\010sequence\030\004 \001(\r\022\r" +
-      "\n\005value\030\005 \001(\003\"\177\n\021TransactionOutput\022\r\n\005va",
-      "lue\030\001 \002(\003\022\024\n\014script_bytes\030\002 \002(\014\022!\n\031spent" +
-      "_by_transaction_hash\030\003 \001(\014\022\"\n\032spent_by_t" +
-      "ransaction_index\030\004 \001(\005\"\254\004\n\025TransactionCo" +
-      "nfidence\0220\n\004type\030\001 \001(\0162\".wallet.Transact" +
-      "ionConfidence.Type\022\032\n\022appeared_at_height" +
-      "\030\002 \001(\005\022\036\n\026overriding_transaction\030\003 \001(\014\022\r" +
-      "\n\005depth\030\004 \001(\005\022)\n\014broadcast_by\030\006 \003(\0132\023.wa" +
-      "llet.PeerAddress\022\033\n\023last_broadcasted_at\030" +
-      "\010 \001(\003\0224\n\006source\030\007 \001(\0162$.wallet.Transacti" +
-      "onConfidence.Source\022=\n\006ixType\030\023 \001(\0162$.wa",
-      "llet.TransactionConfidence.IXType:\007IX_NO" +
-      "NE\"`\n\004Type\022\013\n\007UNKNOWN\020\000\022\014\n\010BUILDING\020\001\022\013\n" +
-      "\007PENDING\020\002\022\025\n\021NOT_IN_BEST_CHAIN\020\003\022\010\n\004DEA" +
-      "D\020\004\022\017\n\013IN_CONFLICT\020\005\"A\n\006Source\022\022\n\016SOURCE" +
-      "_UNKNOWN\020\000\022\022\n\016SOURCE_NETWORK\020\001\022\017\n\013SOURCE" +
-      "_SELF\020\002\"4\n\006IXType\022\013\n\007IX_NONE\020\000\022\016\n\nIX_REQ" +
-      "UEST\020\001\022\r\n\tIX_LOCKED\020\002\"\303\005\n\013Transaction\022\017\n" +
-      "\007version\030\001 \002(\005\022\014\n\004hash\030\002 \002(\014\022&\n\004pool\030\003 \001" +
-      "(\0162\030.wallet.Transaction.Pool\022\021\n\tlock_tim" +
-      "e\030\004 \001(\r\022\022\n\nupdated_at\030\005 \001(\003\0223\n\021transacti",
-      "on_input\030\006 \003(\0132\030.wallet.TransactionInput" +
-      "\0225\n\022transaction_output\030\007 \003(\0132\031.wallet.Tr" +
-      "ansactionOutput\022\022\n\nblock_hash\030\010 \003(\014\022 \n\030b" +
-      "lock_relativity_offsets\030\013 \003(\005\0221\n\nconfide" +
-      "nce\030\t \001(\0132\035.wallet.TransactionConfidence" +
-      "\0225\n\007purpose\030\n \001(\0162\033.wallet.Transaction.P" +
-      "urpose:\007UNKNOWN\022+\n\rexchange_rate\030\014 \001(\0132\024" +
-      ".wallet.ExchangeRate\022\014\n\004memo\030\r \001(\t\"Y\n\004Po" +
-      "ol\022\013\n\007UNSPENT\020\004\022\t\n\005SPENT\020\005\022\014\n\010INACTIVE\020\002" +
-      "\022\010\n\004DEAD\020\n\022\013\n\007PENDING\020\020\022\024\n\020PENDING_INACT",
-      "IVE\020\022\"\243\001\n\007Purpose\022\013\n\007UNKNOWN\020\000\022\020\n\014USER_P" +
-      "AYMENT\020\001\022\020\n\014KEY_ROTATION\020\002\022\034\n\030ASSURANCE_" +
-      "CONTRACT_CLAIM\020\003\022\035\n\031ASSURANCE_CONTRACT_P" +
-      "LEDGE\020\004\022\033\n\027ASSURANCE_CONTRACT_STUB\020\005\022\r\n\t" +
-      "RAISE_FEE\020\006\"N\n\020ScryptParameters\022\014\n\004salt\030" +
-      "\001 \002(\014\022\020\n\001n\030\002 \001(\003:\00516384\022\014\n\001r\030\003 \001(\005:\0018\022\014\n" +
-      "\001p\030\004 \001(\005:\0011\"8\n\tExtension\022\n\n\002id\030\001 \002(\t\022\014\n\004" +
-      "data\030\002 \002(\014\022\021\n\tmandatory\030\003 \002(\010\" \n\003Tag\022\013\n\003" +
-      "tag\030\001 \002(\t\022\014\n\004data\030\002 \002(\014\"5\n\021TransactionSi" +
-      "gner\022\022\n\nclass_name\030\001 \002(\t\022\014\n\004data\030\002 \001(\014\"\351",
-      "\004\n\006Wallet\022\032\n\022network_identifier\030\001 \002(\t\022\034\n" +
-      "\024last_seen_block_hash\030\002 \001(\014\022\036\n\026last_seen" +
-      "_block_height\030\014 \001(\r\022!\n\031last_seen_block_t" +
-      "ime_secs\030\016 \001(\003\022\030\n\003key\030\003 \003(\0132\013.wallet.Key" +
-      "\022(\n\013transaction\030\004 \003(\0132\023.wallet.Transacti" +
-      "on\022&\n\016watched_script\030\017 \003(\0132\016.wallet.Scri" +
-      "pt\022C\n\017encryption_type\030\005 \001(\0162\035.wallet.Wal" +
-      "let.EncryptionType:\013UNENCRYPTED\0227\n\025encry" +
-      "ption_parameters\030\006 \001(\0132\030.wallet.ScryptPa" +
-      "rameters\022\022\n\007version\030\007 \001(\005:\0011\022$\n\textensio",
-      "n\030\n \003(\0132\021.wallet.Extension\022\023\n\013descriptio" +
-      "n\030\013 \001(\t\022\031\n\021key_rotation_time\030\r \001(\004\022\031\n\004ta" +
-      "gs\030\020 \003(\0132\013.wallet.Tag\0226\n\023transaction_sig" +
-      "ners\030\021 \003(\0132\031.wallet.TransactionSigner\";\n" +
-      "\016EncryptionType\022\017\n\013UNENCRYPTED\020\001\022\030\n\024ENCR" +
-      "YPTED_SCRYPT_AES\020\002\"a\n\013MultiWallet\022\022\n\007ver" +
-      "sion\030\001 \001(\005:\0011\022\037\n\007wallets\030\002 \003(\0132\016.wallet." +
-      "Wallet\022\035\n\010mnemonic\030\003 \002(\0132\013.wallet.Key\"R\n" +
-      "\014ExchangeRate\022\022\n\ncoin_value\030\001 \002(\003\022\022\n\nfia" +
-      "t_value\030\002 \002(\003\022\032\n\022fiat_currency_code\030\003 \002(",
-      "\tB\032\n\020org.pivxj.walletB\006Protos"
+      "ht\030\006 \001(\003\022\030\n\003key\030\007 \002(\0132\013.wallet.Key\"\266\003\n\003K" +
+      "ey\022\036\n\004type\030\001 \002(\0162\020.wallet.Key.Type\022\024\n\014se" +
+      "cret_bytes\030\002 \001(\014\022-\n\016encrypted_data\030\006 \001(\013" +
+      "2\025.wallet.EncryptedData\022\022\n\npublic_key\030\003 " +
+      "\001(\014\022\r\n\005label\030\004 \001(\t\022\032\n\022creation_timestamp" +
+      "\030\005 \001(\003\0223\n\021deterministic_key\030\007 \001(\0132\030.wall" +
+      "et.DeterministicKey\022\032\n\022deterministic_see",
+      "d\030\010 \001(\014\022;\n\034encrypted_deterministic_seed\030" +
+      "\t \001(\0132\025.wallet.EncryptedData\022\032\n\004zpiv\030\n \001" +
+      "(\0132\014.wallet.Zpiv\"a\n\004Type\022\014\n\010ORIGINAL\020\001\022\030" +
+      "\n\024ENCRYPTED_SCRYPT_AES\020\002\022\032\n\026DETERMINISTI" +
+      "C_MNEMONIC\020\003\022\025\n\021DETERMINISTIC_KEY\020\004\"5\n\006S" +
+      "cript\022\017\n\007program\030\001 \002(\014\022\032\n\022creation_times" +
+      "tamp\030\002 \002(\003\"\353\001\n\020TransactionInput\022\"\n\032trans" +
+      "action_out_point_hash\030\001 \002(\014\022#\n\033transacti" +
+      "on_out_point_index\030\002 \002(\r\022\024\n\014script_bytes" +
+      "\030\003 \002(\014\022\020\n\010sequence\030\004 \001(\r\022\r\n\005value\030\005 \001(\003\022",
+      "*\n\"private_transaction_out_point_hash\030\006 " +
+      "\001(\014\022+\n#private_transaction_out_point_ind" +
+      "ex\030\007 \001(\r\"\177\n\021TransactionOutput\022\r\n\005value\030\001" +
+      " \002(\003\022\024\n\014script_bytes\030\002 \002(\014\022!\n\031spent_by_t" +
+      "ransaction_hash\030\003 \001(\014\022\"\n\032spent_by_transa" +
+      "ction_index\030\004 \001(\005\"\254\004\n\025TransactionConfide" +
+      "nce\0220\n\004type\030\001 \001(\0162\".wallet.TransactionCo" +
+      "nfidence.Type\022\032\n\022appeared_at_height\030\002 \001(" +
+      "\005\022\036\n\026overriding_transaction\030\003 \001(\014\022\r\n\005dep" +
+      "th\030\004 \001(\005\022)\n\014broadcast_by\030\006 \003(\0132\023.wallet.",
+      "PeerAddress\022\033\n\023last_broadcasted_at\030\010 \001(\003" +
+      "\0224\n\006source\030\007 \001(\0162$.wallet.TransactionCon" +
+      "fidence.Source\022=\n\006ixType\030\023 \001(\0162$.wallet." +
+      "TransactionConfidence.IXType:\007IX_NONE\"`\n" +
+      "\004Type\022\013\n\007UNKNOWN\020\000\022\014\n\010BUILDING\020\001\022\013\n\007PEND" +
+      "ING\020\002\022\025\n\021NOT_IN_BEST_CHAIN\020\003\022\010\n\004DEAD\020\004\022\017" +
+      "\n\013IN_CONFLICT\020\005\"A\n\006Source\022\022\n\016SOURCE_UNKN" +
+      "OWN\020\000\022\022\n\016SOURCE_NETWORK\020\001\022\017\n\013SOURCE_SELF" +
+      "\020\002\"4\n\006IXType\022\013\n\007IX_NONE\020\000\022\016\n\nIX_REQUEST\020" +
+      "\001\022\r\n\tIX_LOCKED\020\002\"\303\005\n\013Transaction\022\017\n\007vers",
+      "ion\030\001 \002(\005\022\014\n\004hash\030\002 \002(\014\022&\n\004pool\030\003 \001(\0162\030." +
+      "wallet.Transaction.Pool\022\021\n\tlock_time\030\004 \001" +
+      "(\r\022\022\n\nupdated_at\030\005 \001(\003\0223\n\021transaction_in" +
+      "put\030\006 \003(\0132\030.wallet.TransactionInput\0225\n\022t" +
+      "ransaction_output\030\007 \003(\0132\031.wallet.Transac" +
+      "tionOutput\022\022\n\nblock_hash\030\010 \003(\014\022 \n\030block_" +
+      "relativity_offsets\030\013 \003(\005\0221\n\nconfidence\030\t" +
+      " \001(\0132\035.wallet.TransactionConfidence\0225\n\007p" +
+      "urpose\030\n \001(\0162\033.wallet.Transaction.Purpos" +
+      "e:\007UNKNOWN\022+\n\rexchange_rate\030\014 \001(\0132\024.wall",
+      "et.ExchangeRate\022\014\n\004memo\030\r \001(\t\"Y\n\004Pool\022\013\n" +
+      "\007UNSPENT\020\004\022\t\n\005SPENT\020\005\022\014\n\010INACTIVE\020\002\022\010\n\004D" +
+      "EAD\020\n\022\013\n\007PENDING\020\020\022\024\n\020PENDING_INACTIVE\020\022" +
+      "\"\243\001\n\007Purpose\022\013\n\007UNKNOWN\020\000\022\020\n\014USER_PAYMEN" +
+      "T\020\001\022\020\n\014KEY_ROTATION\020\002\022\034\n\030ASSURANCE_CONTR" +
+      "ACT_CLAIM\020\003\022\035\n\031ASSURANCE_CONTRACT_PLEDGE" +
+      "\020\004\022\033\n\027ASSURANCE_CONTRACT_STUB\020\005\022\r\n\tRAISE" +
+      "_FEE\020\006\"N\n\020ScryptParameters\022\014\n\004salt\030\001 \002(\014" +
+      "\022\020\n\001n\030\002 \001(\003:\00516384\022\014\n\001r\030\003 \001(\005:\0018\022\014\n\001p\030\004 " +
+      "\001(\005:\0011\"8\n\tExtension\022\n\n\002id\030\001 \002(\t\022\014\n\004data\030",
+      "\002 \002(\014\022\021\n\tmandatory\030\003 \002(\010\" \n\003Tag\022\013\n\003tag\030\001" +
+      " \002(\t\022\014\n\004data\030\002 \002(\014\"5\n\021TransactionSigner\022" +
+      "\022\n\nclass_name\030\001 \002(\t\022\014\n\004data\030\002 \001(\014\"\351\004\n\006Wa" +
+      "llet\022\032\n\022network_identifier\030\001 \002(\t\022\034\n\024last" +
+      "_seen_block_hash\030\002 \001(\014\022\036\n\026last_seen_bloc" +
+      "k_height\030\014 \001(\r\022!\n\031last_seen_block_time_s" +
+      "ecs\030\016 \001(\003\022\030\n\003key\030\003 \003(\0132\013.wallet.Key\022(\n\013t" +
+      "ransaction\030\004 \003(\0132\023.wallet.Transaction\022&\n" +
+      "\016watched_script\030\017 \003(\0132\016.wallet.Script\022C\n" +
+      "\017encryption_type\030\005 \001(\0162\035.wallet.Wallet.E",
+      "ncryptionType:\013UNENCRYPTED\0227\n\025encryption" +
+      "_parameters\030\006 \001(\0132\030.wallet.ScryptParamet" +
+      "ers\022\022\n\007version\030\007 \001(\005:\0011\022$\n\textension\030\n \003" +
+      "(\0132\021.wallet.Extension\022\023\n\013description\030\013 \001" +
+      "(\t\022\031\n\021key_rotation_time\030\r \001(\004\022\031\n\004tags\030\020 " +
+      "\003(\0132\013.wallet.Tag\0226\n\023transaction_signers\030" +
+      "\021 \003(\0132\031.wallet.TransactionSigner\";\n\016Encr" +
+      "yptionType\022\017\n\013UNENCRYPTED\020\001\022\030\n\024ENCRYPTED" +
+      "_SCRYPT_AES\020\002\"a\n\013MultiWallet\022\022\n\007version\030" +
+      "\001 \001(\005:\0011\022\037\n\007wallets\030\002 \003(\0132\016.wallet.Walle",
+      "t\022\035\n\010mnemonic\030\003 \002(\0132\013.wallet.Key\"R\n\014Exch" +
+      "angeRate\022\022\n\ncoin_value\030\001 \002(\003\022\022\n\nfiat_val" +
+      "ue\030\002 \002(\003\022\032\n\022fiat_currency_code\030\003 \002(\tB\032\n\020" +
+      "org.pivxj.walletB\006Protos"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -22098,7 +22529,7 @@ public final class Protos {
     internal_static_wallet_Zpiv_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_wallet_Zpiv_descriptor,
-        new java.lang.String[] { "Version", "Commitment", "Serial", "Den", "ParentTxId", "Height", });
+        new java.lang.String[] { "Version", "Commitment", "Serial", "Den", "ParentTxId", "Height", "Key", });
     internal_static_wallet_Key_descriptor =
       getDescriptor().getMessageTypes().get(5);
     internal_static_wallet_Key_fieldAccessorTable = new
@@ -22116,7 +22547,7 @@ public final class Protos {
     internal_static_wallet_TransactionInput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_wallet_TransactionInput_descriptor,
-        new java.lang.String[] { "TransactionOutPointHash", "TransactionOutPointIndex", "ScriptBytes", "Sequence", "Value", });
+        new java.lang.String[] { "TransactionOutPointHash", "TransactionOutPointIndex", "ScriptBytes", "Sequence", "Value", "PrivateTransactionOutPointHash", "PrivateTransactionOutPointIndex", });
     internal_static_wallet_TransactionOutput_descriptor =
       getDescriptor().getMessageTypes().get(8);
     internal_static_wallet_TransactionOutput_fieldAccessorTable = new

@@ -276,11 +276,16 @@ public class KeyChainGroup implements KeyBag {
      * @return
      */
     public ZCoin getZcoinsAssociated(DeterministicKey key) {
+        // TODO: Change this for: getZcoinsAssociatedRealKey
         return getActiveKeyChain().getZcoinsAssociated(key);
     }
 
     public boolean isCommitmentValuesMine(BigInteger value) {
         return getActiveKeyChain().isCommitmentValueMine(value);
+    }
+
+    public boolean isCoinSerialMine(BigInteger serial) {
+        return getActiveKeyChain().isCoinSerialMine(serial);
     }
 
     /**
@@ -626,7 +631,12 @@ public class KeyChainGroup implements KeyBag {
     }
 
     public BloomFilter getBloomFilter(int size, double falsePositiveRate, long nTweak) {
-        BloomFilter filter = new BloomFilter(size, falsePositiveRate, nTweak);
+        BloomFilter filter;
+        if (getActiveKeyChain().isZerocoinPath()){
+            // TODO: check this..
+            filter = new BloomFilter(size, falsePositiveRate, nTweak, BloomFilter.BloomUpdate.UPDATE_ALL);
+        }else
+            filter = new BloomFilter(size, falsePositiveRate, nTweak);
         if (basic.numKeys() > 0)
             filter.merge(basic.getFilter(size, falsePositiveRate, nTweak));
 
@@ -855,5 +865,6 @@ public class KeyChainGroup implements KeyBag {
             epoch += chain.getKeyLookaheadEpoch();
         return epoch;
     }
+
 
 }

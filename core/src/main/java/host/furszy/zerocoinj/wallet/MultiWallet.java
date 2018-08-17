@@ -1,6 +1,8 @@
 package host.furszy.zerocoinj.wallet;
 
+import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
+import com.zerocoinj.utils.JniBridgeWrapper;
 import host.furszy.zerocoinj.MultiWalletFiles;
 import host.furszy.zerocoinj.WalletFilesInterface;
 import host.furszy.zerocoinj.wallet.files.Listener;
@@ -20,6 +22,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -42,11 +46,22 @@ public class MultiWallet{
 
     protected final ReentrantLock lock;
 
+    public enum WalletType{
+        PIV, ZPIV, ALL
+    }
+
     public MultiWallet(NetworkParameters params, ZerocoinContext zContext, DeterministicSeed seed){
+        this(params,zContext,seed,-1);
+    }
+
+    public MultiWallet(NetworkParameters params, ZerocoinContext zContext, DeterministicSeed seed, int lookaheadSize){
         this.lock = Threading.lock("MultiWallet_1");
         this.seed = seed;
-        this.pivWallet = new Wallet(params,new KeyChainGroup(params, seed, BIP44_PIV));
-        this.zWallet = new ZWallet(params, zContext, seed);
+        KeyChainGroup keyChainGroup = new KeyChainGroup(params, seed, BIP44_PIV);
+        if (lookaheadSize > 0)
+            keyChainGroup.setLookaheadSize(lookaheadSize);
+        this.pivWallet = new Wallet(params,keyChainGroup);
+        this.zWallet = new ZWallet(params, zContext, seed, lookaheadSize);
     }
 
     public MultiWallet(DeterministicSeed seed, List<Wallet> wallets) {
@@ -94,6 +109,18 @@ public class MultiWallet{
         zWallet.addWalletFrom(blockChain);
     }
 
+    public boolean isEveryOutputSpent(Transaction tx, WalletType walletType){
+        if (walletType == WalletType.PIV){
+            return tx.isEveryOwnedOutputSpent(pivWallet);
+        }else if (walletType == WalletType.ZPIV){
+            return tx.isEveryOwnedOutputSpent(getZpivWallet());
+        }else {
+            boolean isSpent = tx.isEveryOwnedOutputSpent(pivWallet);
+            if (!isSpent) return false;
+            return tx.isEveryOwnedOutputSpent(getZpivWallet());
+        }
+    }
+
     public void commitTx(Transaction tx) {
         boolean isZcMint = false;
         for (TransactionOutput output : tx.getOutputs()) {
@@ -139,6 +166,21 @@ public class MultiWallet{
         Set<Transaction> list = pivWallet.getTransactions(true);
         list.addAll(zWallet.getTransactions(true));
         return list;
+    }
+
+    public Collection<Transaction> listPendingTransactions(){
+        Collection<Transaction> list = pivWallet.getPendingTransactions();
+        for (Transaction transaction : zWallet.getPendingTransactions()) {
+            if (!list.contains(transaction)){
+                list.add(transaction);
+            }
+        }
+        return list;
+    }
+
+    public void setKeyChainGroupLookaheadThreshold(int n) {
+        pivWallet.setKeyChainGroupLookaheadThreshold(n);
+        zWallet.getWallet().setKeyChainGroupLookaheadThreshold(n);
     }
 
     public void cleanup(){
@@ -225,6 +267,10 @@ public class MultiWallet{
         return pivWallet.getUnspents();
     }
 
+    public List<TransactionOutput> listZpivUnspent() {
+        return zWallet.getUnspents();
+    }
+
     public boolean isAddressMine(Address address) {
         return pivWallet.isPubKeyHashMine(address.getHash160());
     }
@@ -260,6 +306,50 @@ public class MultiWallet{
         return zWallet.getUnspendableBalance();
     }
 
+    public ZCoin getZcoinAssociated(BigInteger commitmentValue){
+        return zWallet.getZcoinAssociated(commitmentValue);
+    }
+
+    public ZCoin getZcoinAssociatedToSerial(BigInteger serial){
+        return zWallet.getZcoinAssociatedToSerial(serial);
+    }
+
+    public List<ZCoin> freshZcoins(int n) {
+        return zWallet.freshZcoins(n);
+    }
+
+    public TransactionOutput getMintTransaction(BigInteger serial, WalletType walletType){
+        ZCoin coin = zWallet.getZcoinAssociatedToSerial(serial);
+        if (coin == null) return null;
+        if (walletType == WalletType.ZPIV){
+            return getMintTransaction(zWallet.getWallet(), coin);
+        }else if (walletType == WalletType.PIV){
+            return getMintTransaction(pivWallet, coin);
+        }else {
+            TransactionOutput output = getMintTransaction(zWallet.getWallet(), coin);
+            if (output != null) return output;
+            return getMintTransaction(pivWallet, coin);
+        }
+    }
+
+    private TransactionOutput getMintTransaction(Wallet wallet, ZCoin coin){
+        for (Transaction transaction : wallet.getTransactions(true)) {
+            for (TransactionOutput output : transaction.getOutputs()) {
+                if (output.isZcMint() && Utils.areBigIntegersEqual(output.getScriptPubKey().getCommitmentValue(), coin.getCommitment().getCommitmentValue())){
+                    return output;
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean addTx(Transaction tx, WalletType walletType){
+        if (walletType == WalletType.ZPIV){
+            return zWallet.getWallet().maybeCommitTx(tx);
+        }
+        return false;
+    }
+
     /**
      * TODO: Add fee here...
      * @param amount
@@ -276,11 +366,14 @@ public class MultiWallet{
     public SendRequest createSpendRequest(Address to, Coin amount) throws InsufficientMoneyException {
         Transaction tx = zWallet.createSpend(amount);
         tx.addOutput(amount, to);
-        return SendRequest.forTx(tx);
+        SendRequest sendRequest = SendRequest.forTx(tx);
+        // TODO: check if change this for a new zpiv mint is a good idea..
+        sendRequest.changeAddress = pivWallet.freshReceiveAddress();
+        return sendRequest;
     }
 
-    public void spendZpiv(SendRequest request, PeerGroup peerGroup, ExecutorService executor) throws InsufficientMoneyException{
-        zWallet.completeSendRequestAndWaitSync(request,peerGroup,executor);
+    public Transaction spendZpiv(SendRequest request, PeerGroup peerGroup, ExecutorService executor, JniBridgeWrapper wrapper) throws InsufficientMoneyException, CannotSpendCoinsException {
+        return zWallet.completeSendRequestAndWaitSync(wrapper,request,peerGroup,executor);
     }
 
 

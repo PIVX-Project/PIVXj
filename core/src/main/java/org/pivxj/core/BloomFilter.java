@@ -119,7 +119,18 @@ public class BloomFilter extends Message {
         this.nTweak = randomNonce;
         this.nFlags = (byte)(0xff & updateFlag.ordinal());
     }
-    
+
+    public BloomFilter(int elements, double falsePositiveRate, long randomNonce, int hashFuncs) {
+        // The following formulas were stolen from Wikipedia's page on Bloom Filters (with the addition of min(..., MAX_...))
+        //                        Size required for a given number of elements and false-positive rate
+        int size = (int)(-1  / (pow(log(2), 2)) * elements * log(falsePositiveRate));
+        size = max(1, min(size, (int) MAX_FILTER_SIZE * 8) / 8);
+        data = new byte[size];
+        this.hashFuncs = hashFuncs;
+        this.nTweak = randomNonce;
+        this.nFlags = (byte)(0xff & BloomUpdate.UPDATE_ALL.ordinal());
+    }
+
     /**
      * Returns the theoretical false positive rate of this filter if were to contain the given number of elements.
      */

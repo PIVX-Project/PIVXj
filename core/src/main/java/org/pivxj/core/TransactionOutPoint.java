@@ -46,6 +46,10 @@ public class TransactionOutPoint extends ChildMessage {
     // The connected output.
     private TransactionOutput connectedOutput;
 
+    // Private data
+    private long privateIndex = -1;
+    private Sha256Hash privateHash;
+
     public TransactionOutPoint(NetworkParameters params, long index, @Nullable Transaction fromTx) {
         super(params);
         this.index = index;
@@ -111,7 +115,10 @@ public class TransactionOutPoint extends ChildMessage {
     @Nullable
     public TransactionOutput getConnectedOutput() {
         if (fromTx != null) {
-            return fromTx.getOutputs().get((int) index);
+            if (index < 50) // random index value
+                return fromTx.getOutputs().get((int) index);
+            else // Then this is a zc_spend
+                return fromTx.getOutputs().get((int) privateIndex);
         } else if (connectedOutput != null) {
             return connectedOutput;
         }
@@ -183,6 +190,10 @@ public class TransactionOutPoint extends ChildMessage {
         return hash + ":" + index;
     }
 
+    public String toPrivateString() {
+        return hash + ":" + index + " , Private("+privateHash+":"+privateIndex+")";
+    }
+
     public String toStringCpp()
     {
         return "COutPoint("+ hash.toString() + ", "+ index +")";
@@ -213,6 +224,22 @@ public class TransactionOutPoint extends ChildMessage {
         this.index = index;
     }
 
+    public void setPrivateIndex(long index){
+        this.privateIndex = index;
+    }
+
+    public void setPrivateHash(Sha256Hash hash){
+        this.privateHash = hash;
+    }
+
+    public long getPrivateIndex() {
+        return privateIndex;
+    }
+
+    public Sha256Hash getPrivateHash() {
+        return privateHash;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -224,5 +251,9 @@ public class TransactionOutPoint extends ChildMessage {
     @Override
     public int hashCode() {
         return Objects.hashCode(getIndex(), getHash());
+    }
+
+    public void setParentHash(Sha256Hash parentHash) {
+        this.hash = parentHash;
     }
 }

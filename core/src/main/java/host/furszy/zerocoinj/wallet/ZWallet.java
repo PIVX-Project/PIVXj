@@ -5,6 +5,7 @@ import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
 import com.zerocoinj.core.exceptions.InvalidSerialException;
+import com.zerocoinj.utils.JniBridgeWrapper;
 import host.furszy.zerocoinj.MultiWalletFiles;
 import host.furszy.zerocoinj.WalletFilesInterface;
 import host.furszy.zerocoinj.wallet.files.Listener;
@@ -34,10 +35,12 @@ public class ZWallet {
     private NetworkParameters params;
     private Wallet zPivWallet;
 
-    public ZWallet(NetworkParameters params, ZerocoinContext zContext, DeterministicSeed seed) {
+    public ZWallet(NetworkParameters params, ZerocoinContext zContext, DeterministicSeed seed, int lookaheadSize) {
         this.params = params;
         this.zContext = zContext;
         KeyChainGroup keyChainGroupZpiv = new KeyChainGroup(params, seed, BIP44_ZPIV);
+        if (lookaheadSize > 0)
+            keyChainGroupZpiv.setLookaheadSize(lookaheadSize);
         zPivWallet = new Wallet(params,keyChainGroupZpiv);
     }
 
@@ -107,7 +110,7 @@ public class ZWallet {
         // Now start, start from the bigger den and decrease it until the value is completed
         Coin temp = Coin.valueOf(amount.value);
         for (CoinDenomination coinDenomination : CoinDenomination.invertedValues()) {
-            if (!orderedUnspents.containsKey(coinDenomination))continue;
+            if (!orderedUnspents.containsKey(coinDenomination)) continue;
             List<TransactionOutput> outputs = orderedUnspents.get(coinDenomination);
             if (temp.isZero()) break;
             Coin denValue = Coin.valueOf(coinDenomination.getDenomination(),0);
@@ -118,7 +121,9 @@ public class ZWallet {
             long amountOfThisDenom = divisibleForDenomination.divide(denValue);
             for (int i = 0; i < amountOfThisDenom; i++) {
                 // todo: I should get the old one here..
-                tx.addInput(outputs.get(i));
+                TransactionOutput out = outputs.get(i);
+                if (out.getParentTransaction().getConfidence().getDepthInBlocks() >= CoinDefinition.MINT_REQUIRED_CONFIRMATIONS)
+                    tx.addInput(outputs.get(i));
             }
             temp = Coin.valueOf(mod);
         }
@@ -172,22 +177,20 @@ public class ZWallet {
         blockChain.addWallet(zPivWallet);
     }
 
-    public void completeSendRequestAndWaitSync(SendRequest request, PeerGroup peerGroup, ExecutorService executor) {
+    public Transaction completeSendRequestAndWaitSync(JniBridgeWrapper jniBridgeWrapper, SendRequest request, PeerGroup peerGroup, ExecutorService executor) throws CannotSpendCoinsException {
         try {
+            Context.get().zerocoinContext.jniBridge = jniBridgeWrapper;
+            if (request.tx.getOutputs().isEmpty()) throw new IllegalArgumentException("SendRequest transactions outputs cannot be null, add the outputs values before call this method");
             ZCSpendRequest spendRequest = new ZCSpendRequest(request, peerGroup);
             zPivWallet.completeSendRequest(spendRequest);
-            Transaction tx = executor.submit(spendRequest).get(5, TimeUnit.MINUTES);
+            Transaction tx = executor.submit(spendRequest).get(15, TimeUnit.MINUTES);
             logger.info("Tx created!, " + tx);
-            peerGroup.broadcastTransaction(tx,1,false).future().get(1, TimeUnit.MINUTES);
+            tx = peerGroup.broadcastTransaction(tx,1,false).broadcast().get(1, TimeUnit.MINUTES);
             logger.info("Tx broadcasted!, " + tx);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (TimeoutException e) {
-            e.printStackTrace();
+            return tx;
         } catch (Exception e){
-            e.printStackTrace();
+            logger.info("Exception in completeSendRequestAndWaitSync", e);
+            throw new CannotSpendCoinsException(e);
         }
     }
 
@@ -238,5 +241,25 @@ public class ZWallet {
 
     public Coin getBalance(Wallet.BalanceType type) {
         return zPivWallet.getBalance(type);
+    }
+
+    public Collection<Transaction> getPendingTransactions() {
+        return zPivWallet.getPendingTransactions();
+    }
+
+    public List<TransactionOutput> getUnspents() {
+        return zPivWallet.getUnspents();
+    }
+
+    public ZCoin getZcoinAssociated(BigInteger commitmentValue) {
+        return zPivWallet.getActiveKeyChain().getZcoinsAssociated(commitmentValue);
+    }
+
+    public ZCoin getZcoinAssociatedToSerial(BigInteger serial) {
+        return zPivWallet.getActiveKeyChain().getZcoinsAssociatedToSerial(serial);
+    }
+
+    public List<ZCoin> freshZcoins(int n) {
+        return zPivWallet.freshZcoins(KeyChain.KeyPurpose.RECEIVE_FUNDS,n);
     }
 }

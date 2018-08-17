@@ -146,10 +146,12 @@ public class WalletProtobufSerializer {
     }
 
     public Protos.MultiWallet.Builder walletToProto(MultiWallet multiWallet) {
+        // TODO: Deadlock en el getWalletTransactions y en el saveToFile de la multiWallet.
         DeterministicSeed seed = multiWallet.getSeed();
         Protos.Key.Builder mnemonicEntry = BasicKeyChain.serializeEncryptableItem(seed);
         mnemonicEntry.setType(Protos.Key.Type.DETERMINISTIC_MNEMONIC);
         serializeSeedEncryptableItem(seed, mnemonicEntry);
+
         return Protos.MultiWallet.newBuilder()
                 .addWallets(
                     walletToProto(multiWallet.getPivWallet())
@@ -168,7 +170,6 @@ public class WalletProtobufSerializer {
         if (wallet.getDescription() != null) {
             walletBuilder.setDescription(wallet.getDescription());
         }
-
         for (WalletTransaction wtx : wallet.getWalletTransactions()) {
             Protos.Transaction txProto = makeTxProto(wtx);
             walletBuilder.addTransaction(txProto);
@@ -272,6 +273,13 @@ public class WalletProtobufSerializer {
                 .setScriptBytes(ByteString.copyFrom(input.getScriptBytes()))
                 .setTransactionOutPointHash(hashToByteString(input.getOutpoint().getHash()))
                 .setTransactionOutPointIndex((int) input.getOutpoint().getIndex());
+            if (input.getOutpoint().getPrivateHash() != null){
+                inputBuilder.setPrivateTransactionOutPointHash(hashToByteString(input.getOutpoint().getPrivateHash()));
+            }
+            if (input.getOutpoint().getPrivateIndex() != -1){
+                inputBuilder.setPrivateTransactionOutPointIndex((int) input.getOutpoint().getPrivateIndex());
+            }
+
             if (input.hasSequence())
                 inputBuilder.setSequence((int) input.getSequenceNumber());
             if (input.getValue() != null)
@@ -334,7 +342,17 @@ public class WalletProtobufSerializer {
         if (tx.getMemo() != null)
             txBuilder.setMemo(tx.getMemo());
 
-        return txBuilder.build();
+        Protos.Transaction txProto = txBuilder.build();
+        // Transaction should now be complete.
+        Sha256Hash protoHash = byteStringToHash(txProto.getHash());
+        if (!tx.getHash().equals(protoHash))
+            try {
+                throw new UnreadableWalletException(String.format(Locale.US, "Transaction did not deserialize completely: %s vs %s", tx.getHash(), protoHash));
+            } catch (UnreadableWalletException e) {
+                e.printStackTrace();
+            }
+
+        return txProto;
     }
 
     private static Protos.Transaction.Pool getProtoPool(WalletTransaction wtx) {
@@ -687,7 +705,7 @@ public class WalletProtobufSerializer {
 
     public static Protos.MultiWallet parseMultiToProto(InputStream input) throws IOException{
         CodedInputStream codedInput = CodedInputStream.newInstance(input);
-        codedInput.setSizeLimit(WALLET_SIZE_LIMIT);
+        codedInput.setSizeLimit(WALLET_SIZE_LIMIT * 2);
         return Protos.MultiWallet.parseFrom(codedInput);
     }
 
@@ -710,6 +728,12 @@ public class WalletProtobufSerializer {
                     inputProto.getTransactionOutPointIndex() & 0xFFFFFFFFL,
                     byteStringToHash(inputProto.getTransactionOutPointHash())
             );
+            if (inputProto.hasPrivateTransactionOutPointHash()){
+                outpoint.setPrivateHash(byteStringToHash(inputProto.getPrivateTransactionOutPointHash()));
+            }
+            if (inputProto.hasPrivateTransactionOutPointIndex()){
+                outpoint.setPrivateIndex(inputProto.getPrivateTransactionOutPointIndex() & 0xFFFFFFFFL);
+            }
             Coin value = inputProto.hasValue() ? Coin.valueOf(inputProto.getValue()) : null;
             TransactionInput input = new TransactionInput(params, tx, scriptBytes, outpoint, value);
             if (inputProto.hasSequence())
@@ -756,8 +780,11 @@ public class WalletProtobufSerializer {
 
         // Transaction should now be complete.
         Sha256Hash protoHash = byteStringToHash(txProto.getHash());
-        if (!tx.getHash().equals(protoHash))
-            throw new UnreadableWalletException(String.format(Locale.US, "Transaction did not deserialize completely: %s vs %s", tx.getHash(), protoHash));
+        if (!tx.getHash().equals(protoHash)) {
+            if (!tx.getHash().equals(protoHash)) {
+                throw new UnreadableWalletException(String.format(Locale.US, "Transaction did not deserialize completely: tx: %s vs proto: %s", tx.getHash(), protoHash));
+            }
+        }
         if (txMap.containsKey(txProto.getHash()))
             throw new UnreadableWalletException("Wallet contained duplicate transaction " + byteStringToHash(txProto.getHash()));
         txMap.put(txProto.getHash(), tx);

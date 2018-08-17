@@ -7,8 +7,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GenWitMessage extends Message {
+
+    public static final AtomicInteger requestNumInd = new AtomicInteger(0);
 
     private BloomFilter bloomFilter;
     private int startHeight;
@@ -28,14 +31,33 @@ public class GenWitMessage extends Message {
             long randomNonce
     ) {
         super(params);
-        this.requestNum = 10;
         this.startHeight = startHeight;
         this.den = den;
-        this.bloomFilter = new BloomFilter(elements, falsePositiveRate, randomNonce);
+        this.bloomFilter = new BloomFilter(elements, falsePositiveRate, randomNonce,2);
+    }
+
+    public void complete(){
+        this.requestNum = requestNumInd.incrementAndGet();
+    }
+
+    public void setStartHeight(int startHeight) {
+        this.startHeight = startHeight;
     }
 
     public Integer getRequestNum() {
         return requestNum;
+    }
+
+    public BloomFilter getFilter() {
+        return bloomFilter;
+    }
+
+    public int getStartHeight() {
+        return startHeight;
+    }
+
+    public CoinDenomination getDen() {
+        return den;
     }
 
     public void insert(BigInteger data){

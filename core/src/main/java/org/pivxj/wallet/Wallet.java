@@ -24,6 +24,7 @@ import com.google.common.primitives.*;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.*;
 import com.zerocoinj.core.CoinDenomination;
+import com.zerocoinj.core.CoinSpend;
 import com.zerocoinj.core.ZCoin;
 import host.furszy.zerocoinj.WalletFilesInterface;
 import host.furszy.zerocoinj.protocol.GenWitMessage;
@@ -47,7 +48,6 @@ import org.pivxj.wallet.listeners.WalletCoinsSentEventListener;
 import org.pivxj.wallet.listeners.WalletEventListener;
 import org.pivxj.wallet.listeners.WalletReorganizeEventListener;
 import org.slf4j.*;
-import org.spongycastle.crypto.Commitment;
 import org.spongycastle.crypto.params.*;
 
 import javax.annotation.*;
@@ -1038,7 +1038,7 @@ public class Wallet extends BaseTaggableObject
     }
 
     @Override
-    public boolean isZcOutputMine(Script script) {
+    public boolean isZcScriptMine(Script script) {
         keyChainGroupLock.lock();
         try{
             if (watchedScripts.contains(script)){
@@ -1047,10 +1047,11 @@ public class Wallet extends BaseTaggableObject
                 if (script.isZcMint()){
                     BigInteger commitmentValue = script.getCommitmentValue();
                     return keyChainGroup.isCommitmentValuesMine(commitmentValue);
-                }else {
-                    // TODO: Check zc_spend here..
-                    return false;
+                }else if (script.isZcSpend()){
+                    CoinSpend coinSpend = script.getCoinSpend(params, Context.zerocoinContext);
+                    return keyChainGroup.isCoinSerialMine(coinSpend.getCoinSerialNumber());
                 }
+                return false;
             }
         } finally {
             keyChainGroupLock.unlock();
@@ -1118,7 +1119,7 @@ public class Wallet extends BaseTaggableObject
                     } else if (script.isPayToScriptHash()) {
                         Address a = Address.fromP2SHScript(tx.getParams(), script);
                         keyChainGroup.markP2SHAddressAsUsed(a);
-                    } else if (script.isZcMint()){
+                    } else if (script.isZcMint() && getActiveKeyChain().isZerocoinPath()){
                         keyChainGroup.markCommitmentValueAsUsed(script.getCommitmentValue());
                     }
                 } catch (ScriptException e) {
@@ -1904,6 +1905,40 @@ public class Wallet extends BaseTaggableObject
     public boolean isTransactionRelevant(Transaction tx) throws ScriptException {
         lock.lock();
         try {
+            if (getActiveKeyChain().isZerocoinPath() &&
+                    tx.getHashAsString().equals("81ad478724332c24ee6e3893e40bb4ef93e8240477b7b11a326ae5951567f8cb")
+                    ){
+                log.info("mine");
+            }
+            // Before check this, try to connect the output in case of zc_spend
+            try {
+                for (int i = 0; i < tx.getInputs().size(); i++) {
+                    TransactionInput input = tx.getInputs().get(i);
+                    if (input.isZcspend()) {
+                        CoinSpend coinSpend = input.getScriptSig().getCoinSpend(params, Context.zerocoinContext);
+                        ZCoin zCoin = getActiveKeyChain().getZcoinsAssociatedToSerial(coinSpend.getCoinSerialNumber());
+                        if (zCoin != null) {
+                            // now i can get the tx that minted this value
+                            Sha256Hash parentHash = null;
+                            int index = -1;
+                            for (Transaction transaction : transactions.values()) {
+                                for (TransactionOutput output : transaction.getOutputs()) {
+                                    if (output.isZcMint() && output.getScriptPubKey().getCommitmentValue().equals(zCoin.getCommitment().getCommitmentValue())) {
+                                        parentHash = transaction.getHash();
+                                        index = output.getIndex();
+                                        break;
+                                    }
+                                }
+                                if (parentHash != null) break;
+                            }
+                            input.getOutpoint().setPrivateIndex(index);
+                            input.getOutpoint().setPrivateHash(parentHash);
+                        }
+                    }
+                }
+            }catch (Exception e){
+                log.error("exception on zc_spend parsing..",e);
+            }
             return tx.getValueSentFromMe(this).signum() > 0 ||
                    tx.getValueSentToMe(this).signum() > 0 ||
                    !findDoubleSpendsAgainst(tx, transactions).isEmpty();
@@ -2244,7 +2279,7 @@ public class Wallet extends BaseTaggableObject
                         // included once again. We could have a separate was-in-chain-and-now-isn't confidence type
                         // but this way is backwards compatible with existing software, and the new state probably
                         // wouldn't mean anything different to just remembering peers anyway.
-                        if (confidence.incrementDepthInBlocks() > context.getEventHorizon())
+                        if (confidence.incrementDepthInBlocks(block.getHeight()) > context.getEventHorizon())
                             confidence.clearBroadcastBy();
                         confidenceChanged.put(tx, TransactionConfidence.Listener.ChangeReason.DEPTH);
                     }
@@ -2348,13 +2383,13 @@ public class Wallet extends BaseTaggableObject
         if (fromChain)
             checkState(!pending.containsKey(tx.getHash()));
         for (TransactionInput input : tx.getInputs()) {
-            TransactionInput.ConnectionResult result = input.connect(unspent, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+            TransactionInput.ConnectionResult result = input.connect(this, unspent, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
             if (result == TransactionInput.ConnectionResult.NO_SUCH_TX) {
                 // Not found in the unspent map. Try again with the spent map.
-                result = input.connect(spent, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                result = input.connect(this, spent, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
                 if (result == TransactionInput.ConnectionResult.NO_SUCH_TX) {
                     // Not found in the unspent and spent maps. Try again with the pending map.
-                    result = input.connect(pending, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                    result = input.connect(this, pending, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
                     if (result == TransactionInput.ConnectionResult.NO_SUCH_TX) {
                         // Doesn't spend any of our outputs or is coinbase.
                         continue;
@@ -2402,7 +2437,8 @@ public class Wallet extends BaseTaggableObject
         // less random order.
         for (Transaction pendingTx : pending.values()) {
             for (TransactionInput input : pendingTx.getInputs()) {
-                TransactionInput.ConnectionResult result = input.connect(tx, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                // TODO: Check this, have to be changed to the new method with the zcoin..
+                TransactionInput.ConnectionResult result = input.connect(tx, null, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
                 if (fromChain) {
                     // This TX is supposed to have just appeared on the best chain, so its outputs should not be marked
                     // as spent yet. If they are, it means something is happening out of order.
@@ -2467,13 +2503,13 @@ public class Wallet extends BaseTaggableObject
             return;
         log.warn("Now attempting to connect the inputs of the overriding transaction.");
         for (TransactionInput input : overridingTx.getInputs()) {
-            TransactionInput.ConnectionResult result = input.connect(unspent, TransactionInput.ConnectMode.DISCONNECT_ON_CONFLICT);
+            TransactionInput.ConnectionResult result = input.connect(this, unspent, TransactionInput.ConnectMode.DISCONNECT_ON_CONFLICT);
             if (result == TransactionInput.ConnectionResult.SUCCESS) {
                 maybeMovePool(input.getConnectedTransaction(), "kill");
                 myUnspents.remove(input.getConnectedOutput());
                 log.info("Removing from UNSPENTS: {}", input.getConnectedOutput());
             } else {
-                result = input.connect(spent, TransactionInput.ConnectMode.DISCONNECT_ON_CONFLICT);
+                result = input.connect(this, spent, TransactionInput.ConnectMode.DISCONNECT_ON_CONFLICT);
                 if (result == TransactionInput.ConnectionResult.SUCCESS) {
                     maybeMovePool(input.getConnectedTransaction(), "kill");
                     myUnspents.remove(input.getConnectedOutput());
@@ -2996,7 +3032,7 @@ public class Wallet extends BaseTaggableObject
         switch (pool) {
         case UNSPENT:
             //case INSTANTX_LOCKED:
-            if (unspent.containsKey(tx.getHash())) System.out.println("Unspent pool contains: "+tx.getHashAsString());
+            if (unspent.containsKey(tx.getHash())) log.info("Unspent pool contains: "+tx.getHashAsString());
             checkState(unspent.put(tx.getHash(), tx) == null);
             break;
         case SPENT:
@@ -4182,6 +4218,7 @@ public class Wallet extends BaseTaggableObject
      */
     public void completeSendRequest(ZCSpendRequest spendRequest) {
         SendRequest request = spendRequest.getSendRequest();
+        long tweak = (long) (Math.random() * Long.MAX_VALUE);
         for (TransactionInput input : request.tx.getInputs()) {
             // First get the zcoin to spend
             TransactionOutput connectedOutput = input.getConnectedOutput();
@@ -4190,26 +4227,29 @@ public class Wallet extends BaseTaggableObject
 
             // Now get the mint transaction associated with this coin
             Sha256Hash mintTxId = connectedOutput.getParentTransactionHash();
-            int mintTxHeight = lastBlockSeenHeight - connectedOutput.getParentTransaction().getConfidence().getAppearedAtChainHeight();
+            int mintTxHeight = connectedOutput.getParentTransaction().getConfidence().getAppearedAtChainHeight();
 
-            if (mintTxHeight < CoinDefinition.ZEROCOIN_REQUIRED_STAKE_DEPTH){
+            if (mintTxHeight < CoinDefinition.MINT_REQUIRED_CONFIRMATIONS){
                 throw new IllegalStateException("Coin depth is lower than the minimum spend depth");
             }
 
             zCoin.setHeight(mintTxHeight);
             zCoin.setParentTxId(mintTxId);
+            if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR){
+                zCoin.setCoinDenomination(CoinDenomination.fromValue((int) (connectedOutput.getValue().value / 100000000)));
+            }
 
             // Now create the genWithMessage
-            spendRequest.addWaitingRequest(newGenWitMessage(zCoin), zCoin);
+            spendRequest.addWaitingRequest(newGenWitMessage(zCoin, tweak), zCoin);
         }
     }
 
-    private GenWitMessage newGenWitMessage(ZCoin zCoin) {
+    private GenWitMessage newGenWitMessage(ZCoin zCoin, long tweak) {
         GenWitMessage genWitMessage = new GenWitMessage(
                 params,
                 zCoin.getHeight(), // minted height
                 zCoin.getCoinDenomination(),
-                1, 0.001, (long) (Math.random() * Long.MAX_VALUE)
+                1, 0.01, tweak
         );
         BigInteger bnValue = zCoin.getCommitment().getCommitmentValue();
         genWitMessage.insert(bnValue);

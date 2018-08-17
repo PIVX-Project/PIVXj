@@ -1,6 +1,7 @@
 package org.pivxj.zerocoin;
 
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.pivxj.core.*;
 import org.pivxj.net.ClientConnectionManager;
 import javax.annotation.Nullable;
@@ -43,6 +44,11 @@ public class PeergroupUtil extends PeerGroup {
 
     @Override
     public List<Peer> getConnectedPeers() {
+        return Lists.newArrayList(peerUtil);
+    }
+
+    @Override
+    public List<Peer> findPeersOfAtLeastVersion(long protocolVersion) {
         return Lists.newArrayList(peerUtil);
     }
 }

@@ -176,6 +176,10 @@ public class DefaultRiskAnalysis implements RiskAnalysis {
 
     /** Checks if the given input passes some of the AreInputsStandard checks. Not complete. */
     public static RuleViolation isInputStandard(TransactionInput input) {
+        if (input.isZcspend()){
+            // TODO: add here more validations..
+            return RuleViolation.NONE;
+        }
         for (ScriptChunk chunk : input.getScriptSig().getChunks()) {
             if (chunk.data != null && !chunk.isShortestPossiblePushData())
                 return RuleViolation.SHORTEST_POSSIBLE_PUSHDATA;

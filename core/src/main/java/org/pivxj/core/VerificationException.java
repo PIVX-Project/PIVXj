@@ -86,4 +86,16 @@ public class VerificationException extends RuntimeException {
             super(message);
         }
     }
+
+    public static class InvalidZCSpendTx extends VerificationException{
+        public InvalidZCSpendTx(String s) {
+            super(s);
+        }
+    }
+
+    public static class InvalidZCMintFee extends VerificationException{
+        public InvalidZCMintFee(String msg) {
+            super(msg);
+        }
+    }
 }

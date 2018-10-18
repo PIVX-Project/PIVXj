@@ -103,7 +103,8 @@ public class MultiWalletFiles implements WalletFilesInterface{
         log.info("Saving wallet; last seen block is height {}, date {}, hash {}", wallet.getLastBlockSeenHeight(),
                 lastBlockSeenTime != null ? Utils.dateTimeFormat(lastBlockSeenTime) : "unknown",
                 wallet.getLastBlockSeenHash());
-        saveNowInternal();
+        // Do it 2 seconds later to prevent a deadlock.
+        executor.schedule(saver, 1, TimeUnit.SECONDS);
     }
 
     private void saveNowInternal() throws IOException {

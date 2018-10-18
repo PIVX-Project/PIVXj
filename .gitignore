@@ -24,3 +24,5 @@ core/2.0.32_pivx-wallet-backup_org.pivx.production-2017-11-20
 *build/
 *.DS_Store
 *out/
+*3.0.0_pivx-wallet-backup*
+core/out/*

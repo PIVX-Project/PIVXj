@@ -90,4 +90,13 @@ public class GenWitMessage extends Message {
         }
     }
 
+
+    @Override
+    public String toString() {
+        return "GenWitMessage{" +
+                "startHeight=" + startHeight +
+                ", den=" + den +
+                ", requestNum=" + requestNum +
+                '}';
+    }
 }

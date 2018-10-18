@@ -26,6 +26,7 @@ import org.slf4j.*;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -74,6 +75,8 @@ public class Context {
     public InstantSend instantSend;
     //public HashStore hashStore;
     public MasternodeDB masternodeDB;
+
+    public AtomicInteger walletNum = new AtomicInteger(0);
 
     /**
      * Creates a new context object. For now, this will be done for you by the framework. Eventually you will be

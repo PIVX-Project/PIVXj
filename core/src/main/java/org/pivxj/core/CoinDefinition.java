@@ -101,6 +101,8 @@ public class CoinDefinition {
     public static final int MINT_REQUIRED_CONFIRMATIONS = 20;
     //The required confirmations for a zpiv to be stakable
     public static final int ZEROCOIN_REQUIRED_STAKE_DEPTH = 200;
+    //
+    public static final int ZEROCOIN_MAX_SPEND_OUTPUTS = 7;
 
     //
     //  Production

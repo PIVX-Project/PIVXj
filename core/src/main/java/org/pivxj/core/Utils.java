@@ -25,6 +25,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.UnsignedLongs;
+import com.zerocoinj.core.CoinDenomination;
 import org.spongycastle.crypto.digests.RIPEMD160Digest;
 import org.spongycastle.util.encoders.Hex;
 
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
 
@@ -748,5 +750,9 @@ public class Utils {
 
         // TODO: this should include the 7.1% decline too
         return nTotalCoins;
+    }
+
+    public static CoinDenomination toDenomination(long value){
+        return CoinDenomination.fromValue(new BigDecimal(value).movePointLeft(8).intValue());
     }
 }

@@ -138,7 +138,11 @@ public class BitcoinSerializer extends MessageSerializer {
         if (name == null) {
             throw new Error("BitcoinSerializer doesn't currently know how to serialize " + message.getClass());
         }
-        serialize(name, message.bitcoinSerialize(), out);
+        byte[] msg = message.bitcoinSerialize();
+        if ((msg == null || msg.length == 0) && message.getClass() != VersionAck.class && message.getClass() != MemoryPoolMessage.class){
+            throw new IllegalArgumentException("Trying to send an empty message, " + message);
+        }
+        serialize(name, msg, out);
     }
 
     /**
@@ -272,8 +276,11 @@ public class BitcoinSerializer extends MessageSerializer {
             return new MasternodeBroadcast(params, payloadBytes);
         } else if( command.equals("mnp")) {
             return new MasternodePing(params, payloadBytes);
-        } else if (command.equals("mnget")){
+        } else if (command.equals("mnget")) {
             log.warn("mnget message arrived");
+            return null;
+        } else if (command.equals("mnvs")){ //Masternode vote sync
+            log.warn("mnvs message arrived");
             return null;
         } else if (command.equals("spork")) {
             return new SporkMessage(params, payloadBytes, 0);

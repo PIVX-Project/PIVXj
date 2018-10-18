@@ -41,10 +41,9 @@ public class MultiWallet{
     private DeterministicSeed seed;
     private Wallet pivWallet;
     private ZWallet zWallet;
+    private final NetworkParameters params;
 
     protected volatile MultiWalletFiles vFileManager;
-
-    protected final ReentrantLock lock;
 
     public enum WalletType{
         PIV, ZPIV, ALL
@@ -55,23 +54,24 @@ public class MultiWallet{
     }
 
     public MultiWallet(NetworkParameters params, ZerocoinContext zContext, DeterministicSeed seed, int lookaheadSize){
-        this.lock = Threading.lock("MultiWallet_1");
+        this.params = params;
         this.seed = seed;
         KeyChainGroup keyChainGroup = new KeyChainGroup(params, seed, BIP44_PIV);
         if (lookaheadSize > 0)
             keyChainGroup.setLookaheadSize(lookaheadSize);
         this.pivWallet = new Wallet(params,keyChainGroup);
-        this.zWallet = new ZWallet(params, zContext, seed, lookaheadSize);
+        this.zWallet = new ZWallet(params, zContext, this, seed, lookaheadSize);
     }
 
     public MultiWallet(DeterministicSeed seed, List<Wallet> wallets) {
-        this.lock = Threading.lock("MultiWallet_1");
+        if(wallets.isEmpty()) throw new IllegalArgumentException("Empty wallets list");
         ZerocoinContext zContext = Context.get().zerocoinContext;
+        this.params = wallets.get(0).getParams();
         this.seed = seed;
         for (Wallet wallet : wallets) {
             if (wallet.getActiveKeyChain().isZerocoinPath()){
                 if (zWallet != null) throw new IllegalStateException("zWallet not null");
-                zWallet = new ZWallet(zContext,wallet);
+                zWallet = new ZWallet(zContext,this, wallet);
             }else {
                 if (pivWallet != null) throw new IllegalStateException("pivWallet not null");
                 pivWallet = wallet;
@@ -80,8 +80,11 @@ public class MultiWallet{
     }
 
     public MultiWallet(Wallet pivWallet) {
-        this.lock = Threading.lock("MultiWallet_1");
+        this.params = pivWallet.getParams();
         this.pivWallet = pivWallet;
+        this.seed =  pivWallet.getKeyChainSeed();
+        ZerocoinContext zContext = Context.get().zerocoinContext;
+        this.zWallet = new ZWallet(params, zContext, this, seed, -1);
     }
 
     ////////////////////////// Basic /////////////////////////////////
@@ -96,17 +99,17 @@ public class MultiWallet{
 
     public void addPeergroup(PeerGroup peerGroup){
         peerGroup.addWallet(pivWallet);
-        zWallet.addPeergroup(peerGroup);
+        if (zWallet != null) zWallet.addPeergroup(peerGroup);
     }
 
     public void removePeergroup(PeerGroup peerGroup){
         peerGroup.removeWallet(pivWallet);
-        zWallet.removePeergroup(peerGroup);
+        if (zWallet != null) zWallet.removePeergroup(peerGroup);
     }
 
     public void addWalletFrom(BlockChain blockChain) {
         blockChain.addWallet(pivWallet);
-        zWallet.addWalletFrom(blockChain);
+        if (zWallet != null) zWallet.addWalletFrom(blockChain);
     }
 
     public boolean isEveryOutputSpent(Transaction tx, WalletType walletType){
@@ -122,6 +125,7 @@ public class MultiWallet{
     }
 
     public void commitTx(Transaction tx) {
+        // No commit
         boolean isZcMint = false;
         for (TransactionOutput output : tx.getOutputs()) {
             if(output.isZcMint()){
@@ -350,6 +354,10 @@ public class MultiWallet{
         return false;
     }
 
+    public List<AmountPerDen> listAmountPerDen(){
+        return zWallet.listAmountPerDen();
+    }
+
     /**
      * TODO: Add fee here...
      * @param amount
@@ -357,18 +365,25 @@ public class MultiWallet{
      * @throws InsufficientMoneyException
      */
     public SendRequest createMintRequest(Coin amount) throws InsufficientMoneyException {
-        Transaction tx = zWallet.createMint(amount);
+        Transaction tx = new Transaction(params);
+        tx = zWallet.createMint(tx, amount);
         SendRequest request = SendRequest.forTx(tx);
         pivWallet.completeTx(request);
         return request;
     }
 
     public SendRequest createSpendRequest(Address to, Coin amount) throws InsufficientMoneyException {
-        Transaction tx = zWallet.createSpend(amount);
+        return createSpendRequest(to, amount, false);
+    }
+
+    public SendRequest createSpendRequest(Address to, Coin amount, boolean mintChange) throws InsufficientMoneyException {
+        Transaction tx = new Transaction(params);
         tx.addOutput(amount, to);
+        tx = zWallet.createSpend(tx, amount, mintChange);
         SendRequest sendRequest = SendRequest.forTx(tx);
         // TODO: check if change this for a new zpiv mint is a good idea..
         sendRequest.changeAddress = pivWallet.freshReceiveAddress();
+        tx.verify();
         return sendRequest;
     }
 
@@ -402,11 +417,6 @@ public class MultiWallet{
     /** Saves the wallet first to the given temp file, then renames to the dest file. */
     public void saveToFile(File temp, File destFile) throws IOException {
         FileOutputStream stream = null;
-        if (!lock.isHeldByCurrentThread() && lock.isLocked()) {
-            log.info("MultiWallet, lock is held? " + lock.toString());
-        }
-        lock.lock();
-        log.info("MultiWallet saveToFile lock");
         try {
             stream = new FileOutputStream(temp);
             saveToFileStream(stream);
@@ -434,8 +444,6 @@ public class MultiWallet{
             log.error("Failed whilst saving wallet", e);
             throw e;
         }finally {
-            lock.unlock();
-            log.info("MultiWallet saveToFile unlock");
             if (stream != null) {
                 stream.close();
             }
@@ -461,16 +469,10 @@ public class MultiWallet{
      * {@link WalletProtobufSerializer}.
      */
     public void saveToFileStream(OutputStream f) throws IOException {
-        if (!lock.isHeldByCurrentThread()) {
-            log.info("MultiWallet, saveToFileStream lock is held? " + lock.toString());
-        }
-        lock.lock();
-        log.info("MultiWallet saveToFileStream lock");
         try {
             new WalletProtobufSerializer().writeMultiWallet(this, f);
         } finally {
-            lock.unlock();
-            log.info("MultiWallet saveToFileStream unlock");
+            //log.info("MultiWallet saveToFileStream unlock");
         }
     }
 
@@ -498,7 +500,6 @@ public class MultiWallet{
      */
     public MultiWalletFiles autosaveToFile(File f, long delayTime, TimeUnit timeUnit,
                                       @Nullable Listener eventListener) {
-        lock.lock();
         try {
             checkState(vFileManager == null, "Already auto saving this wallet.");
             MultiWalletFiles manager = new MultiWalletFiles(this, f, delayTime, timeUnit);
@@ -511,7 +512,7 @@ public class MultiWallet{
             zWallet.autosaveToFile(vFileManager, eventListener);
             return manager;
         } finally {
-            lock.unlock();
+            //lock.unlock();
         }
     }
 
@@ -523,17 +524,20 @@ public class MultiWallet{
      * </p>
      */
     public void shutdownAutosaveAndWait() {
-        lock.lock();
+        //lock.lock();
         try {
             WalletFilesInterface files = vFileManager;
             vFileManager = null;
             checkState(files != null, "Auto saving not enabled.");
             files.shutdownAndWait();
         } finally {
-            lock.unlock();
+            //lock.unlock();
         }
     }
 
+    public boolean isAutosaveEnabled(){
+        return vFileManager != null;
+    }
     public DeterministicSeed getSeed() {
         return seed;
     }
@@ -565,5 +569,13 @@ public class MultiWallet{
 
     public boolean isEncrypted(){
         return pivWallet.isEncrypted() && zWallet.getWallet().isEncrypted();
+    }
+
+    @Override
+    public String toString() {
+        return "MultiWallet{" +
+                "pivWallet=" + pivWallet +
+                ", zWallet=" + zWallet +
+                '}';
     }
 }

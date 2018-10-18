@@ -2,7 +2,9 @@ package org.pivxj.zerocoin;
 
 import com.google.common.base.Charsets;
 import com.subgraph.orchid.encoders.Hex;
+import com.zerocoinj.JniBridge;
 import com.zerocoinj.core.CoinSpend;
+import com.zerocoinj.core.context.ZerocoinContext;
 import host.furszy.zerocoinj.MultiWalletFiles;
 import host.furszy.zerocoinj.wallet.MultiWallet;
 import host.furszy.zerocoinj.wallet.files.Listener;
@@ -17,18 +19,19 @@ import org.pivxj.core.listeners.TransactionConfidenceEventListener;
 import org.pivxj.net.discovery.PeerDiscovery;
 import org.pivxj.net.discovery.PeerDiscoveryException;
 import org.pivxj.params.MainNetParams;
+import org.pivxj.params.TestNet3Params;
 import org.pivxj.store.BlockStore;
 import org.pivxj.store.BlockStoreException;
 import org.pivxj.store.LevelDBBlockStore;
 import org.pivxj.utils.BriefLogFormatter;
-import org.pivxj.wallet.KeyChainGroup;
-import org.pivxj.wallet.UnreadableWalletException;
-import org.pivxj.wallet.Wallet;
-import org.pivxj.wallet.WalletProtobufSerializer;
+import org.pivxj.wallet.*;
 
 import javax.annotation.Nullable;
 import java.io.*;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -45,6 +48,79 @@ public class ConnectionTest {
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
+
+    @Test
+    public void connectIPv6(){
+        try {
+            final NetworkParameters params = TestNet3Params.get();
+            final MultiWallet multiWallet = new MultiWallet(new Wallet(params));
+            Context context = new Context(params);
+            File walletFile = new File("wallet_connection_test.dat");
+            if (walletFile.exists()){
+                walletFile.delete();
+            }
+            File file = new File("watching_blockstore_2.dat");
+            if (file.exists()){
+                if (file.isDirectory()){
+                    for (File file1 : file.listFiles()) {
+                        file1.delete();
+                    }
+                }else file.delete();
+            }
+            BlockStore spvBlockStore = new LevelDBBlockStore(context,file);
+
+            final BlockChain blockChain = new BlockChain(context,spvBlockStore);
+            multiWallet.addWalletFrom(blockChain);
+            PeerGroup peerGroup = new PeerGroup(params,blockChain);
+            peerGroup.addPeerDiscovery(new PeerDiscovery() {
+                @Override
+                public InetSocketAddress[] getPeers(long services, long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
+                    //InetAddress address =  Inet6Address.getByName("2001:470:1f11:1d4:bc13:daff:fe53:da07");
+                    //System.out.println("address: " + address.getHostAddress());
+                    InetSocketAddress inetSocketAddress = new InetSocketAddress("2001:470:1f11:1d4:bc13:daff:fe53:da07", params.getPort());
+                    if (inetSocketAddress.isUnresolved()){
+                        System.out.println("unresolved");
+                    }
+                    return new InetSocketAddress[]{inetSocketAddress};
+//                    return new InetSocketAddress[]{
+//                            //new InetSocketAddress("202.5.21.31",51474),
+//                            new InetSocketAddress("2001:470:1f11:1d4:bc13:daff:fe53:da07",params.getPort())
+//                            //new InetSocketAddress("localhost",51474)
+//                            //new InetSocketAddress("88.198.192.110",51474)
+//                    };
+                }
+
+                @Override
+                public void shutdown() {
+
+                }
+            });
+            peerGroup.setDownloadTxDependencies(0);
+            multiWallet.addPeergroup(peerGroup);
+            peerGroup.setMaxPeersToDiscoverCount(1);
+            peerGroup.startBlockChainDownload(new AbstractPeerDataEventListener(){
+                @Override
+                public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+                    if ((blocksLeft/10000) == 0) {
+                        System.out.println("block left: " + blocksLeft + ", hash: " + block.getHash().toString());
+                    }
+                }
+            });
+            peerGroup.startAsync();
+            peerGroup.downloadBlockChain();
+
+            while (true){
+                try {
+                    TimeUnit.SECONDS.sleep(5);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        } catch (BlockStoreException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Test
     public void syncTest(){
@@ -67,6 +143,18 @@ public class ConnectionTest {
                     }
                 }else file.delete();
             }
+            multiWallet.saveToFile(walletFile);
+            multiWallet.autosaveToFile(walletFile, 20, TimeUnit.SECONDS, new Listener() {
+                @Override
+                public void onBeforeAutoSave(File tempFile) {
+
+                }
+
+                @Override
+                public void onAfterAutoSave(File newlySavedFile) {
+
+                }
+            });
             BlockStore spvBlockStore = new LevelDBBlockStore(context,file);
             try {
                 String filename = "checkpoints";
@@ -118,10 +206,10 @@ public class ConnectionTest {
                     //try {
                         // Check that the serialization works right..
 
-                        System.out.println(
-                                "Transaction: " + tx.getHashAsString()  + ", "+ org.spongycastle.util.encoders.Hex.toHexString(tx.unsafeBitcoinSerialize()
-                                )
-                        );
+//                        System.out.println(
+//                                "Transaction: " + tx.getHashAsString()  + ", "+ org.spongycastle.util.encoders.Hex.toHexString(tx.unsafeBitcoinSerialize()
+//                                )
+//                        );
 
                         //multiWallet.saveToFile(tempFile);
                         //FileInputStream inputStream = new FileInputStream(tempFile);
@@ -144,7 +232,8 @@ public class ConnectionTest {
 
             while (true){
                 try {
-                    TimeUnit.SECONDS.sleep(120);
+                    TimeUnit.SECONDS.sleep(200);
+                    System.out.println(multiWallet.toString());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -159,7 +248,7 @@ public class ConnectionTest {
     }
 
     public MultiWallet restore(NetworkParameters networkParameters) throws IOException {
-        String filename = "3.0.0_pivx-wallet-backup_org.pivx.production-2018-08-11";
+        String filename = "3.0.0_pivx-wallet-backup_org.pivx.production-2018-08-20";
         //"1.01_pivx-wallet-backup_org.pivx.production-2017-07-26 (2)";
         String password = "123";//"12345678";
 

@@ -24,10 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 
 import static com.google.common.primitives.Ints.min;
@@ -72,6 +69,7 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
 
     @Override
     public Transaction call() throws Exception {
+        log.info("Starting the zc spend..");
         if (this.peerGroup.getConnectedPeers().isEmpty()) throw new IllegalStateException("No peers online");
 
         Map<CoinDenomination,Pair<ArrayList<ZCoin>,GenWitMessage>> genWitByDenomination = new HashMap<>();
@@ -98,11 +96,19 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
         for (Map.Entry<CoinDenomination, Pair<ArrayList<ZCoin>, GenWitMessage>> entry : genWitByDenomination.entrySet()) {
             requests.put(entry.getValue().getSecond().getRequestNum(), entry.getValue());
         }
+
+        log.info("Requests created --> " + Arrays.toString(requests.entrySet().toArray()) );
+
         // TODO: send this to several peers and not just one
-        Peer peer0 = this.peerGroup.getConnectedPeers().get(0);
+        List<Peer> peers = this.peerGroup.getConnectedPeers();
+        Peer peer0 = peers.get(new Random().nextInt(peers.size()));
         peer0.addOnGetDataResponseEventListener(this);
+
+        log.info("Sending genWit to peer --> " + peer0);
         for (Map.Entry<CoinDenomination, Pair<ArrayList<ZCoin>, GenWitMessage>> entry : genWitByDenomination.entrySet()) {
-            peer0.sendMessage(entry.getValue().getSecond());
+            GenWitMessage w = entry.getValue().getSecond();
+            log.info("Sending message num --> " + w.getRequestNum() + "\n denom: " + entry.getKey() + ", merged amount of coins " + entry.getValue().getFirst().size() + ", starting height: " + w.getStartHeight());
+            peer0.sendMessage(w);
         }
 
         log.info("Waiting for node response..");
@@ -114,6 +120,7 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
             }
 
             PubcoinsMessage message = messagesQueue.take();
+            log.info("pubcoins message received -->" + message.getRequestNum());
             onPubcoinReceived(message);
             requests.remove((int) message.getRequestNum());
         }
@@ -138,17 +145,46 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
 
                 try {
                     if (pubcoinsMessage.isHasRequestFailed()) {
+                        // This most likely is a early spend, users will have to wait more to spend their coins.
                         log.info("Request have failed for {}", pair);
-                        throw new RequestFailedException();
+                        throw new RequestFailedException("Message doesn't contains the filtered coins");
                     }
                     List<BigInteger> list = pubcoinsMessage.getList();
-                    System.out.println("amount of data received: " + list.size());
+                    log.info("amount of data received: " + list.size());
                     // Create accumulator:
 
                     // First check that my commitment is in the filtered list
                     if (!list.contains(coinToSpend.getCommitment().getCommitmentValue())) {
                         // TODO: Notify fail here..
-                        log.error("Pubcoins response list doesn't contains our commitment value..");
+                        List<String> hexNotAddedCoinList = new ArrayList<>();
+                        for (BigInteger bigInteger : list) {
+                            hexNotAddedCoinList.add(bigInteger.toString(16));
+                        }
+
+                        log.error("-----------------" +
+                                "\nPubcoins response list doesn't contains our commitment value.., for commitment value: \n"
+                                + coinToSpend.toJsonString());
+
+                        log.error("\n\n Waiting coins:\n " + Arrays.toString(coins.toArray()) + "\n\n");
+                        log.error("GenWitMessage: " + request +
+                                "\n\nList of not added coins: " + Arrays.toString(hexNotAddedCoinList.toArray())
+                                +"\n -------------------"
+                        );
+
+                        // Checking if the coin is on the filter or not..
+                        boolean containsCommitmentValue = request.contains(coinToSpend.getCommitment().getCommitmentValue());
+
+                        log.error("------> containsCommitmentValue: " + containsCommitmentValue);
+
+                        log.error("\n\n ############## Waiting coins of other denom: \n");
+                        for (Map.Entry<Integer, Pair<ArrayList<ZCoin>, GenWitMessage>> entry : requests.entrySet()) {
+                            for (ZCoin zCoin : entry.getValue().getFirst()) {
+                                log.error(zCoin.toJsonString());
+                            }
+                        }
+
+                        log.error("\n\n ############## end Waiting coins of other denom: \n");
+
                         throw new InvalidSpendException("Pubcoins response list doesn't contains our commitment value.., check core sources");
                     }
 
@@ -183,9 +219,6 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
                     }
                     log.info("Valid accumulator");
 
-                    log.info("accumulator: " + acc.getValue());
-                    log.info("witness: " + witness.getValue());
-
 
                     // 3) Complete the tx
 
@@ -213,7 +246,7 @@ public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEv
 
                     if (!coinSpend.hasValidSignature()) {
                         log.error(String.format("CoinSpend signature invalid, coinSpend: %s", coinSpend));
-                        //throw new InvalidSpendException("CoinSpend signature invalid");
+                        throw new InvalidSpendException("CoinSpend signature invalid");
                     }
 
                     System.out.println("coin randomness: " + coinToSpend);

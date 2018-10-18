@@ -107,7 +107,7 @@ public class Wallet extends BaseTaggableObject
 
     // Ordering: lock > keyChainGroupLock. KeyChainGroup is protected separately to allow fast querying of current receive address
     // even if the wallet itself is busy e.g. saving or processing a big reorg. Useful for reducing UI latency.
-    protected final ReentrantLock lock = Threading.lock("wallet");
+    protected final ReentrantLock lock;
     protected final ReentrantLock keyChainGroupLock = Threading.lock("wallet-keychaingroup");
 
     // The various pools below give quick access to wallet-relevant transactions by the state they're in:
@@ -302,6 +302,7 @@ public class Wallet extends BaseTaggableObject
     }
 
     private Wallet(Context context, KeyChainGroup keyChainGroup) {
+        this.lock = Threading.lock("wallet" + context.walletNum.incrementAndGet());
         this.context = context;
         this.params = context.getParams();
         this.keyChainGroup = checkNotNull(keyChainGroup);
@@ -1905,11 +1906,6 @@ public class Wallet extends BaseTaggableObject
     public boolean isTransactionRelevant(Transaction tx) throws ScriptException {
         lock.lock();
         try {
-            if (getActiveKeyChain().isZerocoinPath() &&
-                    tx.getHashAsString().equals("81ad478724332c24ee6e3893e40bb4ef93e8240477b7b11a326ae5951567f8cb")
-                    ){
-                log.info("mine");
-            }
             // Before check this, try to connect the output in case of zc_spend
             try {
                 for (int i = 0; i < tx.getInputs().size(); i++) {
@@ -4218,7 +4214,7 @@ public class Wallet extends BaseTaggableObject
      */
     public void completeSendRequest(ZCSpendRequest spendRequest) {
         SendRequest request = spendRequest.getSendRequest();
-        long tweak = (long) (Math.random() * Long.MAX_VALUE);
+        long tweak =  Long.MAX_VALUE; // (long) (Math.random() * Long.MAX_VALUE);
         for (TransactionInput input : request.tx.getInputs()) {
             // First get the zcoin to spend
             TransactionOutput connectedOutput = input.getConnectedOutput();
@@ -4236,7 +4232,7 @@ public class Wallet extends BaseTaggableObject
             zCoin.setHeight(mintTxHeight);
             zCoin.setParentTxId(mintTxId);
             if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR){
-                zCoin.setCoinDenomination(CoinDenomination.fromValue((int) (connectedOutput.getValue().value / 100000000)));
+                zCoin.setCoinDenomination(Utils.toDenomination(connectedOutput.getValue().value));
             }
 
             // Now create the genWithMessage
@@ -4245,9 +4241,11 @@ public class Wallet extends BaseTaggableObject
     }
 
     private GenWitMessage newGenWitMessage(ZCoin zCoin, long tweak) {
+        // height, todo: randomize this a little bit
+        int startHeight = (zCoin.getHeight() - (zCoin.getHeight() % 10)) - new Random().nextInt(50);
         GenWitMessage genWitMessage = new GenWitMessage(
                 params,
-                zCoin.getHeight(), // minted height
+                startHeight,
                 zCoin.getCoinDenomination(),
                 1, 0.01, tweak
         );
@@ -4295,7 +4293,7 @@ public class Wallet extends BaseTaggableObject
 
                 Script scriptPubKey = txIn.getConnectedOutput().getScriptPubKey();
                 // If it's a zc_mint we don't need to sign it.
-                if (scriptPubKey.isZcMint()){
+                if (scriptPubKey.isZcMint() || scriptPubKey.isZcSpend()){
                     continue;
                 }
 
@@ -4362,6 +4360,14 @@ public class Wallet extends BaseTaggableObject
                 for (TransactionOutput output : myUnspents) {
                     if (excludeUnsignable && !canSignFor(output.getScriptPubKey())) continue;
                     Transaction transaction = checkNotNull(output.getParentTransaction());
+
+                    // Mint check TODO: Check me..
+                    if (excludeImmatureCoinbases && output.isZcMint()){
+                        if (output.getParentTransactionDepthInBlocks() < CoinDefinition.MINT_REQUIRED_CONFIRMATIONS){
+                            continue;
+                        }
+                    }
+
                     if (excludeImmatureCoinbases && !transaction.isMature())
                         continue;
                     candidates.add(output);

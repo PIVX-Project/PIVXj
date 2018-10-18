@@ -43,75 +43,75 @@ public class BIP32Test {
     HDWTestVector[] tvs = {
             new HDWTestVector(
                     "000102030405060708090a0b0c0d0e0f",
-                    "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi",
-                    "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8",
+                    "TDt9EWvD5T5T44hAac1bLFvmH5fhMx2T6zgUKCmsDWZskySV2A1VDhHjPie5CBJ8nZs7TKXmo5sy2eHhFCSwa4gxqpKBK9NEZaua11yXwhAQ2wp",
+                    "ToEA6epvY6iUs9r4R5mvZQyK8EtsCsK1xZ6hEXrGFDKjQpAT8V28vb7LKuKhFM7zoxQ7CzWX7dE7mJNiqBw8t8PU91Bu8oAqabvg9xGoBzHZLxp",
                     Arrays.asList(
                             new HDWTestVector.DerivedTestCase(
                                     "Test1 m/0H",
                                     new ChildNumber[]{new ChildNumber(0, true)},
-                                    "xprv9uHRZZhk6KAJC1avXpDAp4MDc3sQKNxDiPvvkX8Br5ngLNv1TxvUxt4cV1rGL5hj6KCesnDYUhd7oWgT11eZG7XnxHrnYeSvkzY7d2bhkJ7",
-                                    "xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw"
+                                    "TDt9EZBd5ANv9Kp9jD9JY1oQA7mogmaoV5AUzpCmBbwzjAdmPSJfdvppWrzUySeUCHF5ANRUAPCqR18ZxxUfDey9dtPhP23NoYcTi2cPNoMUB6w",
+                                    "ToEA6h6LXp1wxQy3ZgudmAqx1GzyXgsNLdahv9HADJhrP1MjVmKKLpeRT3g72cghZGJeDCo5yrmYVwSooauGqA7rCtedLRy6VuptftQMVd9h3VM"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test1 m/0H/1",
                                     new ChildNumber[]{new ChildNumber(0, true), new ChildNumber(1, false)},
-                                    "xprv9wTYmMFdV23N2TdNG573QoEsfRrWKQgWeibmLntzniatZvR9BmLnvSxqu53Kw1UmYPxLgboyZQaXwTCg8MSY3H2EU4pWcQDnRnrVA1xe8fs",
-                                    "xpub6ASuArnXKPbfEwhqN6e3mwBcDTgzisQN1wXN9BJcM47sSikHjJf3UFHKkNAWbWMiGj7Wf5uMash7SyYq527Hqck2AxYysAA7xmALppuCkwQ"
+                                    "TDt9EbMkGwvoY2hDZfBkGGhGkrfTk9ZuV6tmw8sbmsiofoRycyooMjF8URtiPVqXoD27cTB9yCoGVi5z6tztLzm8R3t8to16sJPKNpvkun8rYcG",
+                                    "ToEA6jGTjbZqM7r7Q8x5VRjpc1tdb4rULfJzrTwzoaUfKe9wjJpT4d4jQcaLSh9GyD1zAvR8mHDecXwHPte6JVHjtYUZddowyYqAJcw8ncLBfDe"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test1 m/0H/1/2H",
                                     new ChildNumber[]{new ChildNumber(0, true), new ChildNumber(1, false), new ChildNumber(2, true)},
-                                    "xprv9z4pot5VBttmtdRTWfWQmoH1taj2axGVzFqSb8C9xaxKymcFzXBDptWmT7FwuEzG3ryjH4ktypQSAewRiNMjANTtpgP4mLTj34bhnZX7UiM",
-                                    "xpub6D4BDPcP2GT577Vvch3R8wDkScZWzQzMMUm3PWbmWvVJrZwQY4VUNgqFJPMM3No2dFDFGTsxxpG5uJh7n7epu4trkrX7x7DogT5Uv6fcLW5"
+                                    "TDt9Edy2KUkfEuYdRpyqWs6e7rhbyJSRkeUmGg7H2D1xqfoR2pzvAV5ZNsSdwY49mSXc7vCYZfkBv7utL6jdw1gKY9KoFQZf2EdFz6fyYM6oD1B",
+                                    "ToEA6msjn8Ph3zhXGJkAk29By1vmpDizcCtzC1Bg3umpVWXP9A1ZsNuAK48FziL7R5TJXSWsNfCFzUWFrDnP1aqGwzdQDXn64Vtr2JrGstysVAH"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test1 m/0H/1/2H/2",
                                     new ChildNumber[]{new ChildNumber(0, true), new ChildNumber(1, false), new ChildNumber(2, true), new ChildNumber(2, false)},
-                                    "xprvA2JDeKCSNNZky6uBCviVfJSKyQ1mDYahRjijr5idH2WwLsEd4Hsb2Tyh8RfQMuPh7f7RtyzTtdrbdqqsunu5Mm3wDvUAKRHSC34sJ7in334",
-                                    "xpub6FHa3pjLCk84BayeJxFW2SP4XRrFd1JYnxeLeU8EqN3vDfZmbqBqaGJAyiLjTAwm6ZLRQUMv1ZACTj37sR62cfN7fe5JnJ7dh8zL4fiyLHV"
+                                    "TDt9EgCR9uscRPDcWJTZD8Jj1Mrv47jAPEnxi9zaHAYSA7N2PvdHEFmvaSuZcrTcE6w3BiLFBaykpwN3oHe68SDfjXuqeeekaKSy95993rNMzUu",
+                                    "ToEA6p78cZWeEUNWLnDtSHMGrX65u31jEoDBdV4yJsJHox5zWFdvw9bXWdbBg3KVpsc2zke3WfgD3DQNQe8P6tGUfb6f8KLGtgng2zm82T6KJan"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test1 m/0H/1/2H/2/1000000000",
                                     new ChildNumber[]{new ChildNumber(0, true), new ChildNumber(1, false), new ChildNumber(2, true), new ChildNumber(2, false), new ChildNumber(1000000000, false)},
-                                    "xprvA41z7zogVVwxVSgdKUHDy1SKmdb533PjDz7J6N6mV6uS3ze1ai8FHa8kmHScGpWmj4WggLyQjgPie1rFSruoUihUZREPSL39UNdE3BBDu76",
-                                    "xpub6H1LXWLaKsWFhvm6RVpEL9P4KfRZSW7abD2ttkWP3SSQvnyA8FSVqNTEcYFgJS2UaFcxupHiYkro49S8yGasTvXEYBVPamhGW6cFJodrTHy"
+                                    "TDt9EhvBdbUrYWbp2eF1KfsTK4rurMJUCjbzWQP8XSvaNBkX742fkg2aqZ4dFiEp9247o7jVxwxhfyuAoTeTfWEPrVZNz9QyhECgRQhVo1R47Ej",
+                                    "ToEA6qpu6F7tMbkhs81LYpv1AE65hGb34J2DRjTXZ9gS22UVDP3KTZrBmjkFJsESg8gkUSvb21c1aR6y14XQCjmKWrFmzrkMhANJqxP3GenZSJd"
                             )
                     )
             ),
             new HDWTestVector(
                     "fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542",
-                    "xprv9s21ZrQH143K31xYSDQpPDxsXRTUcvj2iNHm5NUtrGiGG5e2DtALGdso3pGz6ssrdK4PFmM8NSpSBHNqPqm55Qn3LqFtT2emdEXVYsCzC2U",
-                    "xpub661MyMwAqRbcFW31YEwpkMuc5THy2PSt5bDMsktWQcFF8syAmRUapSCGu8ED9W6oDMSgv6Zz8idoc4a6mr8BDzTJY47LJhkJ8UB7WEGuduB",
+                    "TDt9EWvD5T5T44hAaDWvSR13jHPTc9AsncwHznZbWTJhjMZMK92gPr4fpcofYF5By5RChNHCYNLRJkKtLjB3cV5fTBdwmZSUhvpJaGbmJc39xAS",
+                    "ToEA6epvY6iUs9r4QhHFfa3baScdT4TSeBMWv7dzYA4ZPCHKRU3L6jtGkoVHbTCyXCm57YkK2HtHANsyYyfN1KJdGvBqzjNJR6RLUKwuTyjmv5e",
                     Arrays.asList(
                             new HDWTestVector.DerivedTestCase(
                                     "Test2 m/0",
                                     new ChildNumber[]{new ChildNumber(0, false)},
-                                    "xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt",
-                                    "xpub69H7F5d8KSRgmmdJg2KhpAK8SR3DjMwAdkxj3ZuxV27CprR9LgpeyGmXUbC6wb7ERfvrnKZjXoUmmDznezpbZb7ap6r1D3tgFxHmwMkQTPH"
+                                    "TDt9EaBxMAmQY5XF6V7DaCNvo5nyy6v8VbRaYxJxgGL9omRK17Uey7QjyTNv7kLzc9G372X2SNk9juk1hEosAmaiPQoLmjrY6Qz3hgWKfy7BcRy",
+                                    "ToEA6i6fopQSMAg8vxsYoMRUeF29p2ChM9qoUHPMhy61Tc9H7SVJg1ELue4YAvAsKHmWKsEUtWt2ZTiwi963tU13cWr8Gn6yKSZibp4ZuCFDqQD"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test2 m/0/2147483647H",
                                     new ChildNumber[]{new ChildNumber(0, false), new ChildNumber(2147483647, true)},
-                                    "xprv9wSp6B7kry3Vj9m1zSnLvN3xH8RdsPP1Mh7fAaR7aRLcQMKTR2vidYEeEg2mUCTAwCd6vnxVrcjfy2kRgVsFawNzmjuHc2YmYRmagcEPdU9",
-                                    "xpub6ASAVgeehLbnwdqV6UKMHVzgqAG8Gr6riv3Fxxpj8ksbH9ebxaEyBLZ85ySDhKiLDBrQSARLq1uNRts8RuJiHjaDMBU4Zn9h8LZNnBC5y4a"
+                                    "TDt9EbM1bmnvuyhMGMKPzeNaGRUYMr9335bGe7PVbfEvTWBhTQi7azq4BXAWj6pyLPzX1FqvDPwnnvF88UYdu9BqxiEuCU5srviJVTqrSM8WfhM",
+                                    "ToEA6jFj4RRxj4rF6q5jDoR87ahiCmRbte1VZSTtdMzn7LufZjimHtef7hr8nJQz52Nc7PA2YMjdrg9YNoxPfNVALfJkorj2gApjUCLAjzRSrz1"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test2 m/0/2147483647H/1",
                                     new ChildNumber[]{new ChildNumber(0, false), new ChildNumber(2147483647, true), new ChildNumber(1, false)},
-                                    "xprv9zFnWC6h2cLgpmSA46vutJzBcfJ8yaJGg8cX1e5StJh45BBciYTRXSd25UEPVuesF9yog62tGAQtHjXajPPdbRCHuWS6T8XA2ECKADdw4Ef",
-                                    "xpub6DF8uhdarytz3FWdA8TvFSvvAh8dP3283MY7p2V4SeE2wyWmG5mg5EwVvmdMVCQcoNJxGoWaU9DCWh89LojfZ537wTfunKau47EL2dhHKon"
+                                    "TDt9Ee9z1nms5czYMxzY4JX9ENQmhP1Y9GWXxYtMSiuFmPY98EaGtWMm5RYtZu2bN7CDKDCcxh2BCTvLTBKnx2iDyC4CLEcgi2ggyGGauzni6xJ",
+                                    "ToEA6n4hUSQtti9SCSksHTZh5XdwYJJ6zpvkssxkURf7REG7EZavbQBN1cEWd6c7ru4thZcaNzpsVoTNTcDQaGv7bzmfQ8vstiFwPy17zPEAhLs"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test2 m/0/2147483647H/1/2147483646H",
                                     new ChildNumber[]{new ChildNumber(0, false), new ChildNumber(2147483647, true), new ChildNumber(1, false), new ChildNumber(2147483646, true)},
-                                    "xprvA1RpRA33e1JQ7ifknakTFpgNXPmW2YvmhqLQYMmrj4xJXXWYpDPS3xz7iAxn8L39njGVyuoseXzU6rcxFLJ8HFsTjSyQbLYnMpCqE2VbFWc",
-                                    "xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL"
+                                    "TDt9EfL1vkiDh1xFevE8nnLgbt6xc7UuCF92zFcEySbfc9oPaauCzBHmbwuzCbkyzXaVrnVKGWoAaqVvGJRATycif2jNAB9zrEiKJrH6yj3CXGC",
+                                    "ToEA6oEjPQMFW779VPzU1wPET3L8T2mU3oZFuage19MXFzXMguurh57NY8bcFkjd4GbLf1GDBVtaYQnE7FNoGA2dKMU7g3FNT1MMGC5hXLLMMwA"
                             ),
                             new HDWTestVector.DerivedTestCase(
                                     "Test2 m/0/2147483647H/1/2147483646H/2",
                                     new ChildNumber[]{new ChildNumber(0, false), new ChildNumber(2147483647, true), new ChildNumber(1, false), new ChildNumber(2147483646, true), new ChildNumber(2, false)},
-                                    "xprvA2nrNbFZABcdryreWet9Ea4LvTJcGsqrMzxHx98MMrotbir7yrKCEXw7nadnHM8Dq38EGfSh6dqA9QWTyefMLEcBYJUuekgW4BYPJcr9E7j",
-                                    "xpub6FnCn6nSzZAw5Tw7cgR9bi15UV96gLZhjDstkXXxvCLsUXBGXPdSnLFbdpq8p9HmGsApME5hQTZ3emM2rnY5agb9rXpVGyy3bdW6EEgAtqt"
+                                    "TDt9Egh3tBvjDCGVQBR2WrUNadUw1B21Sa47eRE8PDxAEweyenEn9pDXnWrzH1Rz9YfZu6M3ZGRz2wLcJrJgCHywi1U5y2fVuer31Dcf4Mqgck3",
+                                    "ToEA6pbmLqZm2HRPEfBMk1WvRni6r6JaJ8ULZkJXQvi1tnNwm7FRri38ihYcL9ouBqx3B4USTRPzS7oDbgSJ6FiXdcKhKD5TPNe5wVGtC3N27Jk"
                             )
                     )
             )

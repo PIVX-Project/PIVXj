@@ -42,7 +42,7 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class DeterministicSeed implements EncryptableItem {
     // It would take more than 10^12 years to brute-force a 128 bit seed using $1B worth of computing equipment.
-    public static final int DEFAULT_SEED_ENTROPY_BITS = 128;
+    public static final int DEFAULT_SEED_ENTROPY_BITS = 256;
     public static final int MAX_SEED_ENTROPY_BITS = 512;
 
     @Nullable private final byte[] seed;

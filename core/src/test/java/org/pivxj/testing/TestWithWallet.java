@@ -37,7 +37,7 @@ import static org.pivxj.testing.FakeTxBuilder.createFakeTx;
  * fee per kilobyte to zero in setUp.
  */
 public class TestWithWallet {
-    protected static final NetworkParameters PARAMS = UnitTestParams.get();
+    protected static NetworkParameters PARAMS = UnitTestParams.get();
     protected ECKey myKey;
     protected Address myAddress;
     protected Wallet wallet;

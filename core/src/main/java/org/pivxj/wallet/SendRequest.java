@@ -146,6 +146,11 @@ public class SendRequest {
      */
     public String memo = null;
 
+    /**
+     * If it's true the change is minted to zPIV
+     */
+    public boolean mintChange = false;
+
     // Tracks if this has been passed to wallet.completeTx already: just a safety check.
     boolean completed;
 

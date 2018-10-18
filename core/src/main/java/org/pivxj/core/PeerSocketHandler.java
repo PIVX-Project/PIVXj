@@ -103,7 +103,11 @@ public abstract class PeerSocketHandler extends AbstractTimeoutHandler implement
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             serializer.serialize(message, out);
-            writeTarget.writeBytes(out.toByteArray());
+            byte[] msg = out.toByteArray();
+            if (msg.length == 0){
+                throw new IllegalArgumentException("Trying to send an empty message, " + message);
+            }
+            writeTarget.writeBytes(msg);
         } catch (IOException e) {
             exceptionCaught(e);
         }

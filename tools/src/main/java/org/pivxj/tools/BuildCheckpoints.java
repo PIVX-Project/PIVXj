@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.security.DigestOutputStream;
@@ -93,10 +94,10 @@ public class BuildCheckpoints {
                 //throw new RuntimeException("Unreachable.");
         }
 
-        //params = TestNet3Params.get();
-        //suffix = "-testnet";
-        params = MainNetParams.get();
-        suffix = "";
+        params = TestNet3Params.get();
+        suffix = "-testnet";
+        //params = MainNetParams.get();
+        //suffix = "";
 
 
         final InetAddress ipAddress;
@@ -108,9 +109,11 @@ public class BuildCheckpoints {
                 System.err.println("Could not understand peer domain name/IP address: " + peerFlag + ": " + e.getMessage());
                 System.exit(1);
                 return;
-            }InetAddress.getLocalHost();
+            }
         } else {
-            ipAddress = InetAddress.getLocalHost(); //InetAddress.getByName("202.5.21.31"); // InetAddress.getLocalHost();
+            //ipAddress = InetAddress.getLocalHost(); //InetAddress.getByName("202.5.21.31"); // InetAddress.getLocalHost();
+            // Testnet
+            ipAddress = new InetSocketAddress( "2001:470:1f11:1d4:bc13:daff:fe53:da07", params.getPort()).getAddress();
         }
         final PeerAddress peerAddress = new PeerAddress(ipAddress, params.getPort());
 

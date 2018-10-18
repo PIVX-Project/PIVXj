@@ -44,10 +44,7 @@ import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.*;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.*;
@@ -1394,12 +1391,25 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
         final int needed = issued + lookaheadSize + lookaheadThreshold - numChildren;
 
         if (needed <= lookaheadThreshold)
-            return new ArrayList<DeterministicKey>();
+            return new ArrayList<>();
 
         ImmutableList<ChildNumber> path = ImmutableList.of(BIP44_MASTER_KEY, ZPIVX_PATH, ChildNumber.ZERO_HARDENED,ChildNumber.ZERO);
-        boolean createZcoins = parent.getPath().equals(path);
+        final boolean createZcoins = parent.getPath().equals(path);
         log.info("{} keys needed for {} = {} issued + {} lookahead size + {} lookahead threshold - {} num children - Zcoins flag {} ",
                 needed, parent.getPathAsString(), issued, lookaheadSize, lookaheadThreshold, numChildren, createZcoins);
+
+
+        final ConcurrentLinkedQueue<DeterministicKey> queue = new ConcurrentLinkedQueue<>();;
+        ExecutorService taskExecutor = null;
+        if (createZcoins) {
+            int numberOfProcessors = 2;
+            try {
+                numberOfProcessors = Runtime.getRuntime().availableProcessors();
+            } catch (Exception e) {
+                log.error("Exception trying to get the number of processors", e);
+            }
+            taskExecutor = Executors.newFixedThreadPool(numberOfProcessors);
+        }
 
         List<DeterministicKey> result  = new ArrayList<>(needed);
         final Stopwatch watch = Stopwatch.createStarted();
@@ -1410,14 +1420,54 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
             hierarchy.putKey(key);
             result.add(key);
             nextChild = key.getChildNumber().num() + 1;
-            if (createZcoins){
-                generateZcoin(key);
-                //log.info("Valid coin created, pubkey: " + key.getPublicKeyAsHex());
+
+            if (createZcoins) {
+                queue.add(key);
+                taskExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!queue.isEmpty())
+                            generateZcoin(queue.poll());
+                    }
+                });
+            }
+        }
+        if (createZcoins) {
+            // Wait until every task is finished.
+            taskExecutor.shutdown();
+            while (!queue.isEmpty()) {
+                generateZcoin(queue.poll());
+            }
+            try {
+                taskExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                log.error("Timeout trying to calculate the commitments", e);
+                throw new RuntimeException(e);
             }
         }
         watch.stop();
         log.info("Took {}", watch);
+
+        // Sort zcoins by path now..
+        sortZcoinsByPath();
+
         return result;
+    }
+
+    private void sortZcoinsByPath() {
+        List<DeterministicKey> keys = new ArrayList<>(zcoins.keySet());
+        Collections.sort(keys, new Comparator<DeterministicKey>() {
+            @Override
+            public int compare(DeterministicKey o1, DeterministicKey o2) {
+                return o1.getPathAsString().compareTo(o2.getPathAsString());
+            }
+        });
+        Map<DeterministicKey, ZCoin> zcoinsTemp = new HashMap<>();
+        for (DeterministicKey key : keys) {
+            zcoinsTemp.put(key, zcoins.get(key));
+        }
+        zcoins.clear();
+        zcoins.putAll(zcoinsTemp);
     }
 
     private void generateZcoin(DeterministicKey key){
@@ -1634,8 +1684,11 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
 
     public List<ZCoin> getZcoins(int amount) {
         List<ZCoin> createdZCoins = new ArrayList<>();
-        for (ZCoin zCoin : zcoins.values()) {
-            createdZCoins.add(zCoin);
+        int i = 0;
+        for (Map.Entry<DeterministicKey, ZCoin> entry : zcoins.entrySet()) {
+            createdZCoins.add(entry.getValue());
+            i++;
+            if (i == amount) break;
         }
         return createdZCoins;
     }

@@ -52,4 +52,12 @@ public class Pair<First, Second> {
         result = 31 * result + (second != null ? second.hashCode() : 0);
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Pair{" +
+                "first=" + first +
+                ",\n second=" + second +
+                '}';
+    }
 }

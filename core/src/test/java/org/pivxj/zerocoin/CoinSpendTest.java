@@ -40,6 +40,23 @@ import org.junit.Rule;
 public class CoinSpendTest extends TestWithWallet {
 
     @Test
+    public void walletZcoinDerivation() {
+
+        NetworkParameters params = MainNetParams.get();
+        Context context = Context.getOrCreate(params);
+        context.zerocoinContext.jniBridge = new JniBridge();
+
+        // Setup the wallet
+        DeterministicSeed seed = new DeterministicSeed(
+                Hex.decode("760a00eda285a842ad99626b61faebb6e36d80decae6665ac9c5f4c17db5185858d9fed30b6cd78a7daff4e07c88bf280cfc595620a4107613b50cab42a32f9b"),
+                "",
+                System.currentTimeMillis()
+        );
+        final MultiWallet multiWallet = new MultiWallet(params, new ZerocoinContext(new JniBridge()), seed, 140);
+
+    }
+
+    @Test
     public void validCoinSpendWithCppDataTest(){
 
         NetworkParameters params = MainNetParams.get();

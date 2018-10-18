@@ -38,6 +38,7 @@ import com.google.protobuf.WireFormat;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -173,6 +174,7 @@ public class WalletProtobufSerializer {
         for (WalletTransaction wtx : wallet.getWalletTransactions()) {
             Protos.Transaction txProto = makeTxProto(wtx);
             walletBuilder.addTransaction(txProto);
+            //log.info("tx to proto: " + wtx.getTransaction().getHashAsString());
         }
 
         walletBuilder.addAllKey(wallet.serializeKeyChainGroupToProtobuf());
@@ -464,13 +466,39 @@ public class WalletProtobufSerializer {
                 throw new UnreadableWalletException("Unknown network parameters ID " + paramsID);
             return readWallet(params, extensions, walletProto, forceReset);
         } catch (IOException e) {
-            throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+            // Check if the input is from an old wallet version
+            try {
+                OldProtos.Wallet walletProto = parseToOldProto(input);
+
+                final String paramsID = walletProto.getNetworkIdentifier();
+                NetworkParameters params = NetworkParameters.fromID(paramsID);
+                if (params == null)
+                    throw new UnreadableWalletException("Unknown network parameters ID " + paramsID);
+                return readWallet(params, extensions, walletProto, forceReset);
+            } catch (IOException e1) {
+                throw new UnreadableWalletException("Could not parse input stream to protobuf", e1);
+            }
         } catch (IllegalStateException e) {
-            throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+
+
+            // Check if the input is from an old wallet version
+            try {
+                OldProtos.Wallet walletProto = parseToOldProto(input);
+
+                final String paramsID = walletProto.getNetworkIdentifier();
+                NetworkParameters params = NetworkParameters.fromID(paramsID);
+                if (params == null)
+                    throw new UnreadableWalletException("Unknown network parameters ID " + paramsID);
+                return readWallet(params, extensions, walletProto, forceReset);
+            } catch (IOException e1) {
+                throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
+            }
+
         } catch (IllegalArgumentException e) {
             throw new UnreadableWalletException("Could not parse input stream to protobuf", e);
         }
     }
+
 
     public MultiWallet readMultiWallet(InputStream input, boolean forceReset, @Nullable WalletExtension[] extensions) throws UnreadableWalletException {
         try {
@@ -661,6 +689,13 @@ public class WalletProtobufSerializer {
         return wallet;
     }
 
+    public Wallet readWallet(NetworkParameters params, @Nullable WalletExtension[] extensions,
+                             OldProtos.Wallet walletProto, boolean forceReset) throws UnreadableWalletException {
+        // TODO: COmplete me..
+        throw new Error("Method not implemented");
+
+    }
+
     private void loadExtensions(Wallet wallet, WalletExtension[] extensionsList, Protos.Wallet walletProto) throws UnreadableWalletException {
         final Map<String, WalletExtension> extensions = new HashMap<String, WalletExtension>();
         for (WalletExtension e : extensionsList)
@@ -701,6 +736,12 @@ public class WalletProtobufSerializer {
         CodedInputStream codedInput = CodedInputStream.newInstance(input);
         codedInput.setSizeLimit(WALLET_SIZE_LIMIT);
         return Protos.Wallet.parseFrom(codedInput);
+    }
+
+    public static OldProtos.Wallet parseToOldProto(InputStream input) throws IOException {
+        CodedInputStream codedInput = CodedInputStream.newInstance(input);
+        codedInput.setSizeLimit(WALLET_SIZE_LIMIT);
+        return OldProtos.Wallet.parseFrom(codedInput);
     }
 
     public static Protos.MultiWallet parseMultiToProto(InputStream input) throws IOException{

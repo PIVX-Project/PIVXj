@@ -14,14 +14,20 @@
 
 package org.pivxj.store;
 
+import host.furszy.zerocoinj.store.RollbackBlockStore;
 import org.pivxj.core.*;
 import org.fusesource.leveldbjni.*;
 import org.iq80.leveldb.*;
+import org.pivxj.utils.Threading;
 
 import javax.annotation.*;
 import java.io.*;
 import java.nio.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * An SPV block store that writes every header it sees to a <a href="https://github.com/fusesource/leveldbjni">LevelDB</a>.
@@ -29,7 +35,7 @@ import java.util.Arrays;
  * usage than the {@link SPVBlockStore}. If all you want is a regular wallet you don't need this class: it exists for
  * specialised applications where you need to quickly verify a standalone SPV proof.
  */
-public class LevelDBBlockStore implements BlockStore {
+public class LevelDBBlockStore implements BlockStore, RollbackBlockStore {
     private static final byte[] CHAIN_HEAD_KEY = "chainhead".getBytes();
 
     private final Context context;
@@ -37,6 +43,14 @@ public class LevelDBBlockStore implements BlockStore {
     private final ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
     private final ByteBuffer zerocoinBuffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE_ZEROCOIN);
     private final File path;
+
+    protected final ReentrantLock lock = Threading.lock("leveldb-blockstore-lock");
+    private final StoredBlock genesisBlock;
+
+    {
+        Block genesis = Context.get().getParams().getGenesisBlock().cloneAsHeader();
+        genesisBlock = new StoredBlock(genesis, genesis.getWork(), 0);
+    }
 
     /** Creates a LevelDB SPV block store using the JNI/C++ version of LevelDB. */
     public LevelDBBlockStore(Context context, File directory) throws BlockStoreException {
@@ -78,25 +92,20 @@ public class LevelDBBlockStore implements BlockStore {
 
     @Override
     public synchronized void put(StoredBlock block) throws BlockStoreException {
-        //System.out.println("### trying to save something..");
-        ByteBuffer buffer;
-        buffer = block.getHeader().isZerocoin()? zerocoinBuffer:this.buffer;
-        buffer.clear();
-        //System.out.println("Block information: "+block.toString());
-        block.serializeCompact(buffer);
-        Sha256Hash blockHash = block.getHeader().getHash();
-        //System.out.println("### block hash to save: "+blockHash.toString());
-        byte[] hash = blockHash.getBytes();
-        byte[] dbBuffer = buffer.array();
+        lock.lock();
+        try {
+            ByteBuffer buffer;
+            buffer = block.getHeader().isZerocoin() ? zerocoinBuffer : this.buffer;
+            buffer.clear();
+            block.serializeCompact(buffer);
+            Sha256Hash blockHash = block.getHeader().getHash();
+            byte[] hash = blockHash.getBytes();
+            byte[] dbBuffer = buffer.array();
 
-        db.put(hash, dbBuffer);
-        // just for now to check something:
-        //StoredBlock dbBlock = get(Sha256Hash.wrap(hash));
-        //byte[] bufferTwo = db.get(hash);
-        //assert Arrays.equals(dbBuffer,bufferTwo):"database is shit..";
-        //if (!Arrays.equals(dbBlock.getHeader().getHash().getBytes(),hash)) {
-        //   assert false : "put is different than get in db.. " + block.getHeader().getHashAsString() + ", db: " + dbBlock.getHeader().getHashAsString();
-        //}
+            db.put(hash, dbBuffer);
+        }finally {
+            lock.unlock();
+        }
     }
 
     @Override @Nullable
@@ -123,6 +132,68 @@ public class LevelDBBlockStore implements BlockStore {
             db.close();
         } catch (IOException e) {
             throw new BlockStoreException(e);
+        }
+    }
+
+    public synchronized void rollbackTo(int height) throws BlockStoreException {
+        lock.lock();
+        try {
+            StoredBlock block = getChainHead();
+            List<Sha256Hash> blocksToRemove = new ArrayList<>();
+            StoredBlock newChainHead = null;
+            if (block.getHeight() <= height || height <= 0) throw new IllegalArgumentException("Invalid height");
+            for (;;){
+                blocksToRemove.add(block.getHeader().getHash());
+                block = block.getPrev(this);
+                if (block.getHeight() == height){
+                    newChainHead = block;
+                    break;
+                }
+            }
+            for (int i = 0; i < height; i++) {
+                blocksToRemove.add(block.getHeader().getHash());
+                block = block.getPrev(this);
+            }
+
+            // Now remove every block
+            for (Sha256Hash sha256Hash : blocksToRemove) {
+                db.delete(sha256Hash.getBytes());
+            }
+
+            setChainHead(newChainHead);
+        }finally {
+            lock.unlock();
+        }
+    }
+
+    public synchronized void rollbackTo(Sha256Hash blockHash) throws BlockStoreException {
+        lock.lock();
+        try {
+            // First check if its exists..
+            List<Sha256Hash> blocksToRemove = new ArrayList<>();
+            StoredBlock block = getChainHead();
+            StoredBlock chainHead;
+            while (true) {
+                if (block.getHeader().getHashAsString().equals(blockHash.toString())) {
+                    chainHead = block;
+                    break;
+                }else {
+                    blocksToRemove.add(block.getHeader().getHash());
+                    block = block.getPrev(this);
+                    if (block == null || block.equals(genesisBlock)){
+                        throw new BlockStoreException("Block not found");
+                    }
+                }
+            }
+
+            // Now remove every block
+            for (Sha256Hash sha256Hash : blocksToRemove) {
+                db.delete(sha256Hash.getBytes());
+            }
+
+            setChainHead(chainHead);
+        }finally {
+            lock.unlock();
         }
     }
 

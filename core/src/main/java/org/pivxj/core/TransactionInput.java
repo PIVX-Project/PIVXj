@@ -392,6 +392,27 @@ public class TransactionInput extends ChildMessage {
     }
 
     /**
+     * TODO: Check this better..
+     * @param wallet
+     * @param tx
+     * @return
+     */
+    public ZCoin checkIfHasConnection(Wallet wallet, Transaction tx){
+        if (isZcspend()) {
+            CoinSpend coinSpend = getScriptSig().getCoinSpend(params, Context.zerocoinContext);
+            ZCoin zCoin = wallet.getActiveKeyChain().getZcoinsAssociatedToSerial(coinSpend.getCoinSerialNumber());
+            if (zCoin != null) {
+                for (TransactionOutput output : tx.getOutputs()) {
+                    if (output.isZcMint() && output.getScriptPubKey().getCommitmentValue().equals(zCoin.getCommitment().getCommitmentValue())){
+                        return zCoin;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Connects this input to the relevant output of the referenced transaction.
      * Connecting means updating the internal pointers and spent flags. If the mode is to ABORT_ON_CONFLICT then
      * the spent output won't be changed, but the outpoint.fromTx pointer will still be updated.

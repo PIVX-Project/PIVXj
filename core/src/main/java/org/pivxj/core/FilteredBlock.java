@@ -18,6 +18,9 @@
 package org.pivxj.core;
 
 import com.google.common.base.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,6 +33,9 @@ import java.util.*;
  * <p>Instances of this class are not safe for use by multiple threads.</p>
  */
 public class FilteredBlock extends Message {
+
+    private static final Logger log = LoggerFactory.getLogger(FilteredBlock.class);
+
     private Block header;
 
     private PartialMerkleTree merkleTree;
@@ -60,15 +66,20 @@ public class FilteredBlock extends Message {
 
     @Override
     protected void parse() throws ProtocolException {
-        long version = Utils.readUint32(payload, 0);
-        int headerSize = Block.getHeaderSizeByVersion(version);
-        byte[] headerBytes = new byte[headerSize];
-        System.arraycopy(payload, 0, headerBytes, 0, headerSize);
-        header = params.getDefaultSerializer().makeBlock(headerBytes);
-        
-        merkleTree = new PartialMerkleTree(params, payload, headerSize);
-        
-        length = headerSize + merkleTree.getMessageSize();
+        try {
+            long version = Utils.readUint32(payload, 0);
+            int headerSize = Block.getHeaderSizeByVersion(version);
+            byte[] headerBytes = new byte[headerSize];
+            System.arraycopy(payload, 0, headerBytes, 0, headerSize);
+            header = params.getDefaultSerializer().makeBlock(headerBytes);
+
+            merkleTree = new PartialMerkleTree(params, payload, headerSize);
+
+            length = headerSize + merkleTree.getMessageSize();
+        }catch (Exception e){
+            log.error("FilteredBlock parse failed, payload: " + Hex.toHexString(payload));
+            throw e;
+        }
     }
     
     /**

@@ -1,5 +1,6 @@
 package host.furszy.zerocoinj.wallet;
 
+import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.ZCoin;
 import com.zerocoinj.core.context.ZerocoinContext;
 import com.zerocoinj.utils.JniBridgeWrapper;
@@ -12,6 +13,7 @@ import org.pivxj.crypto.DeterministicKey;
 import org.pivxj.crypto.KeyCrypter;
 import org.pivxj.utils.Threading;
 import org.pivxj.wallet.*;
+import org.pivxj.wallet.exceptions.RequestFailedErrorcodeException;
 import org.pivxj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,10 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -310,6 +309,10 @@ public class MultiWallet{
         return zWallet.getUnspendableBalance();
     }
 
+    public Map<CoinDenomination, HashSet<ZCoin>> getAllMintedZCoins(){
+        return zWallet.getAllMintedZCoins();
+    }
+
     public ZCoin getZcoinAssociated(BigInteger commitmentValue){
         return zWallet.getZcoinAssociated(commitmentValue);
     }
@@ -387,7 +390,7 @@ public class MultiWallet{
         return sendRequest;
     }
 
-    public Transaction spendZpiv(SendRequest request, PeerGroup peerGroup, ExecutorService executor, JniBridgeWrapper wrapper) throws InsufficientMoneyException, CannotSpendCoinsException {
+    public Transaction spendZpiv(SendRequest request, PeerGroup peerGroup, ExecutorService executor, JniBridgeWrapper wrapper) throws InsufficientMoneyException, CannotSpendCoinsException, RequestFailedErrorcodeException {
         return zWallet.completeSendRequestAndWaitSync(wrapper,request,peerGroup,executor);
     }
 
@@ -526,6 +529,8 @@ public class MultiWallet{
     public void shutdownAutosaveAndWait() {
         //lock.lock();
         try {
+            zWallet.shutdown();
+
             WalletFilesInterface files = vFileManager;
             vFileManager = null;
             checkState(files != null, "Auto saving not enabled.");

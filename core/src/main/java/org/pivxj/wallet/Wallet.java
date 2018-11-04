@@ -26,8 +26,13 @@ import com.google.protobuf.*;
 import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.CoinSpend;
 import com.zerocoinj.core.ZCoin;
+import com.zerocoinj.core.accumulators.Accumulator;
+import com.zerocoinj.core.accumulators.Accumulators;
 import host.furszy.zerocoinj.WalletFilesInterface;
+import host.furszy.zerocoinj.protocol.AccValueMessage;
 import host.furszy.zerocoinj.protocol.GenWitMessage;
+import host.furszy.zerocoinj.store.AccStoreException;
+import host.furszy.zerocoinj.wallet.CannotCompleteSendRequestException;
 import host.furszy.zerocoinj.wallet.ZCSpendRequest;
 import net.jcip.annotations.*;
 import org.pivxj.core.*;
@@ -52,6 +57,7 @@ import org.spongycastle.crypto.params.*;
 
 import javax.annotation.*;
 import java.io.*;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.*;
@@ -2024,7 +2030,10 @@ public class Wallet extends BaseTaggableObject
             if (!isTransactionRelevant(tx))
                 return;
             receive(tx, block, blockType, relativityOffset);
-        } finally {
+
+        } catch (Exception e){
+            throw e;
+        }finally {
             lock.unlock();
         }
     }
@@ -2434,7 +2443,18 @@ public class Wallet extends BaseTaggableObject
         for (Transaction pendingTx : pending.values()) {
             for (TransactionInput input : pendingTx.getInputs()) {
                 // TODO: Check this, have to be changed to the new method with the zcoin..
-                TransactionInput.ConnectionResult result = input.connect(tx, null, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                TransactionInput.ConnectionResult result;
+                if (input.isZcspend()){
+                    ZCoin coin = input.checkIfHasConnection(this, pendingTx);
+                    if (coin != null)
+                        result = input.connect(tx, coin, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                    else {
+                        log.error("### NULL ON COIN CHECK..");
+                        result = input.connect(tx, coin, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                    }
+                }else {
+                    result = input.connect(tx, null, TransactionInput.ConnectMode.ABORT_ON_CONFLICT);
+                }
                 if (fromChain) {
                     // This TX is supposed to have just appeared on the best chain, so its outputs should not be marked
                     // as spent yet. If they are, it means something is happening out of order.
@@ -3028,12 +3048,18 @@ public class Wallet extends BaseTaggableObject
         switch (pool) {
         case UNSPENT:
             //case INSTANTX_LOCKED:
-            if (unspent.containsKey(tx.getHash())) log.info("Unspent pool contains: "+tx.getHashAsString());
-            checkState(unspent.put(tx.getHash(), tx) == null);
+            if (unspent.containsKey(tx.getHash())){
+                // This means that we received to tx with the same values..
+                log.warn("## Check this... should not happen. Unspent pool contains: "+tx.getHashAsString());
+                unspent.put(tx.getHash(), tx);
+            }else {
+                checkState(unspent.put(tx.getHash(), tx) == null);
+            }
             break;
         case SPENT:
             boolean b = spent.put(tx.getHash(), tx) == null;
-            log.error("### Transaction already on the SPENT pool.. "+tx.toString());
+            if (!b)
+                log.error("### Transaction already on the SPENT pool.. "+tx.toString());
             //checkState(spent.put(tx.getHash(), tx) == null);
             break;
         case PENDING:
@@ -4212,26 +4238,27 @@ public class Wallet extends BaseTaggableObject
      *
      * @param spendRequest
      */
-    public void completeSendRequest(ZCSpendRequest spendRequest) {
+    public void completeSendRequest(ZCSpendRequest spendRequest) throws CannotCompleteSendRequestException, AccStoreException {
         SendRequest request = spendRequest.getSendRequest();
-        long tweak =  Long.MAX_VALUE; // (long) (Math.random() * Long.MAX_VALUE);
+        long tweak = Long.MAX_VALUE; // (long) (Math.random() * Long.MAX_VALUE);
         for (TransactionInput input : request.tx.getInputs()) {
             // First get the zcoin to spend
             TransactionOutput connectedOutput = input.getConnectedOutput();
             ZCoin zCoin = getActiveKeyChain().getZcoinsAssociated(connectedOutput.getScriptPubKey().getCommitmentValue());
-            if (zCoin == null) throw new IllegalArgumentException("zCoin associated not found, " + input.getScriptSig().getCommitmentValue().toString(16));
+            if (zCoin == null)
+                throw new IllegalArgumentException("zCoin associated not found, " + input.getScriptSig().getCommitmentValue().toString(16));
 
             // Now get the mint transaction associated with this coin
             Sha256Hash mintTxId = connectedOutput.getParentTransactionHash();
             int mintTxHeight = connectedOutput.getParentTransaction().getConfidence().getAppearedAtChainHeight();
 
-            if (mintTxHeight < CoinDefinition.MINT_REQUIRED_CONFIRMATIONS){
+            if (mintTxHeight < CoinDefinition.MINT_REQUIRED_CONFIRMATIONS) {
                 throw new IllegalStateException("Coin depth is lower than the minimum spend depth");
             }
 
             zCoin.setHeight(mintTxHeight);
             zCoin.setParentTxId(mintTxId);
-            if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR){
+            if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR) {
                 zCoin.setCoinDenomination(Utils.toDenomination(connectedOutput.getValue().value));
             }
 
@@ -4240,14 +4267,54 @@ public class Wallet extends BaseTaggableObject
         }
     }
 
-    private GenWitMessage newGenWitMessage(ZCoin zCoin, long tweak) {
+    public ZCoin loadZcoin(TransactionOutput output){
+        ZCoin zCoin = getActiveKeyChain().getZcoinsAssociated(output.getScriptPubKey().getCommitmentValue());
+        if (zCoin == null)
+            throw new IllegalArgumentException("zCoin associated not found, " + output.getScriptPubKey().getCommitmentValue().toString(16));
+
+        // Now get the mint transaction associated with this coin
+        Sha256Hash mintTxId = output.getParentTransactionHash();
+        int mintTxHeight = output.getParentTransaction().getConfidence().getAppearedAtChainHeight();
+
+        if (mintTxHeight < CoinDefinition.MINT_REQUIRED_CONFIRMATIONS) {
+            throw new IllegalStateException("Coin depth is lower than the minimum spend depth");
+        }
+
+        zCoin.setHeight(mintTxHeight);
+        zCoin.setParentTxId(mintTxId);
+        if (zCoin.getCoinDenomination() == CoinDenomination.ZQ_ERROR) {
+            zCoin.setCoinDenomination(Utils.toDenomination(output.getValue().value));
+        }
+        return zCoin;
+    }
+
+    private GenWitMessage newGenWitMessage(ZCoin zCoin, long tweak) throws AccStoreException {
         // height, todo: randomize this a little bit
         int startHeight = (zCoin.getHeight() - (zCoin.getHeight() % 10)) - new Random().nextInt(50);
+        // TODO: Cargar aquí el witness value base de este mensaje desde la db de accumulators value
+        //TODO: Recordar que esto puede causar que se acumulen bloques dos veces.. tengo que pasarle el bloque exacto donde se quedó el ultimo.
+        // TODO: Si quiero agregarle randomness deberia pedir los acc value que ocurrieron antes de este mint..
+        // Get the checkpoint added at the next multiple of 10
+        //int nHeightCheckpoint =  zCoin.getHeight() - (10 + (zCoin.getHeight() % 10));
+        // TODO: This is just for the first implementation, should be changed following the protocol..
+        int nHeightCheckpoint =  zCoin.getHeight() - ((zCoin.getHeight() % 10));
+        startHeight = nHeightCheckpoint;
+        // TODO: Change this for the last known witness..
+        BigInteger accValue = context.accStore.get(nHeightCheckpoint, zCoin.getCoinDenomination());
+
+        if (accValue == null){
+            // TODO: Request the value and put all of this in waiting status or reject the work..
+            log.error("## there is no accValue for nHeightCheckpoint: " + nHeightCheckpoint + ", denom: " + zCoin.getCoinDenomination() + ", for coin: " + zCoin);
+            // Look for an older one here..
+            throw new AccStoreException("Value not found", zCoin, nHeightCheckpoint);
+        }
+
         GenWitMessage genWitMessage = new GenWitMessage(
                 params,
                 startHeight,
                 zCoin.getCoinDenomination(),
-                1, 0.01, tweak
+                1, 0.01, tweak,
+                accValue
         );
         BigInteger bnValue = zCoin.getCommitment().getCommitmentValue();
         genWitMessage.insert(bnValue);

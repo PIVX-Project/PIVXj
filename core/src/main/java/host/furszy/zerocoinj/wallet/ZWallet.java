@@ -8,23 +8,29 @@ import com.zerocoinj.core.exceptions.InvalidSerialException;
 import com.zerocoinj.utils.JniBridgeWrapper;
 import host.furszy.zerocoinj.MultiWalletFiles;
 import host.furszy.zerocoinj.WalletFilesInterface;
+import host.furszy.zerocoinj.protocol.AccValueMessage;
+import host.furszy.zerocoinj.store.AccStoreException;
 import host.furszy.zerocoinj.wallet.files.Listener;
 import org.pivxj.core.*;
-import org.pivxj.core.listeners.TransactionConfidenceEventListener;
+import org.pivxj.core.listeners.*;
 import org.pivxj.script.Script;
 import org.pivxj.script.ScriptBuilder;
 import org.pivxj.script.ScriptOpCodes;
+import org.pivxj.store.BlockStoreException;
 import org.pivxj.utils.Pair;
 import org.pivxj.wallet.*;
+import org.pivxj.wallet.exceptions.RequestFailedErrorcodeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
+import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
+import static org.pivxj.core.Utils.toDenomination;
 import static org.pivxj.wallet.DeterministicKeyChain.KeyChainType.BIP44_ZPIV;
 
 public class ZWallet {
@@ -38,6 +44,67 @@ public class ZWallet {
     private MultiWallet parent;
     private Wallet zPivWallet;
 
+    // Last calculated block..
+    int lastWitnessCalculationHeight = 0;
+    int passedBlocks = -1;
+
+    private ExecutorService executorService;
+
+    private NewBestBlockListener blocksEvent = new NewBestBlockListener() {
+        @Override
+        public void notifyNewBestBlock(StoredBlock block) throws VerificationException {
+            // Every 50 blocks calculate the witness value for the coins that this wallet has..
+            if (passedBlocks == -1 || passedBlocks > 50){
+                // TODO: Request the witness calculation here..
+                System.out.println("Request witness calculation..");
+                lastWitnessCalculationHeight = zPivWallet.getLastBlockSeenHeight();
+                passedBlocks = 0;
+            }
+        }
+    };
+
+    private TransactionReceivedInBlockListener txEvent = new TransactionReceivedInBlockListener(){
+
+        @Override
+        public void receiveFromBlock(final Transaction tx, final StoredBlock block, BlockChain.NewBlockType blockType, int relativityOffset) throws VerificationException {
+            if (zPivWallet.isTransactionRelevant(tx)){
+                if (blockType == AbstractBlockChain.NewBlockType.BEST_CHAIN) {
+                    executorService.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                tryToSyncTxIfIsRelevant(tx, block);
+                            }catch (Exception e){
+                                logger.error("Exception on tryToSyncTxIfIsRelevant", e);
+                            }
+                        }
+                    });
+                }
+
+            }
+        }
+
+        @Override
+        public boolean notifyTransactionIsInBlock(Sha256Hash txHash, final StoredBlock block, BlockChain.NewBlockType blockType, int relativityOffset) throws VerificationException {
+            final Transaction tx = zPivWallet.getTransaction(txHash);
+            if (tx == null) return false; // False positive that was broadcast to us and ignored by us because it was irrelevant to our keys.
+
+            if (blockType == AbstractBlockChain.NewBlockType.BEST_CHAIN) {
+                executorService.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            tryToSyncTxIfIsRelevant(tx, block);
+                        }catch (Exception e){
+                            logger.error("Exception on tryToSyncTxIfIsRelevant", e);
+                        }
+                    }
+                });
+            }
+            return true;
+        }
+    };
+
     public ZWallet(NetworkParameters params, ZerocoinContext zContext, MultiWallet parent , DeterministicSeed seed, int lookaheadSize) {
         this.parent = parent;
         this.params = params;
@@ -46,6 +113,8 @@ public class ZWallet {
         if (lookaheadSize > 0)
             keyChainGroupZpiv.setLookaheadSize(lookaheadSize);
         zPivWallet = new Wallet(params,keyChainGroupZpiv);
+        this.lastWitnessCalculationHeight = zPivWallet.getLastBlockSeenHeight();
+        this.executorService = Executors.newSingleThreadExecutor();
     }
 
     public ZWallet(ZerocoinContext zContext, MultiWallet parent, Wallet zPivWallet) {
@@ -53,10 +122,20 @@ public class ZWallet {
         this.zContext = zContext;
         this.zPivWallet = zPivWallet;
         this.params = zPivWallet.getParams();
+        this.lastWitnessCalculationHeight = zPivWallet.getLastBlockSeenHeight();
+        this.executorService = Executors.newSingleThreadExecutor();
+    }
+
+    private void setupEvents(){
+        if (Context.get().blockChain != null) {
+            Context.get().blockChain.addNewBestBlockListener(blocksEvent);
+            Context.get().blockChain.addTransactionReceivedListener(txEvent);
+        }
     }
 
     public void addPeergroup(PeerGroup peerGroup) {
         peerGroup.addWallet(zPivWallet);
+        setupEvents();
     }
 
     public void removePeergroup(PeerGroup peerGroup) {
@@ -65,6 +144,63 @@ public class ZWallet {
 
     public void commitTx(Transaction tx) {
         zPivWallet.commitTx(tx);
+    }
+
+
+    private void tryToSyncTxIfIsRelevant(Transaction tx, StoredBlock block) {
+        // If tx is mint then request the accValue that occurred right before this block..
+        List<TransactionOutput> mints = new ArrayList<>();
+        for (TransactionOutput output : tx.getOutputs()) {
+            if (output.isZcMint()){
+                mints.add(output);
+                break;
+            }
+        }
+        if (!mints.isEmpty()){
+
+            for (TransactionOutput mint : mints) {
+                try {
+                    int height = block.getHeight();
+                    //int rev = (height % 10) + 10;
+                    int rev = (height % 10);
+
+                    logger.info("#@#@#@ Trying to request the accumulator value for height: " + height + ", rev height: " + rev);
+
+                    BigInteger commValue = mint.getScriptPubKey().getCommitmentValue();
+                    ZCoin zCoin = zPivWallet.getZcoin(commValue);
+
+                    CoinDenomination denom;
+                    if (zCoin == null){
+                        logger.info("zCoin in mint {} not found for this wallet",commValue.toString(16));
+                        denom = toDenomination(mint.getValue().value);
+                    }else
+                        denom = zCoin.getCoinDenomination();
+
+                    StoredBlock storedBlock = block;
+                    for (int i = 0; i < rev; i++) {
+                        storedBlock = storedBlock.getPrev(
+                                Context.get().blockChain.getBlockStore()
+                        );
+                    }
+                    requestAccValue(storedBlock, denom, storedBlock.getHeight());
+                }catch (Exception e){
+                    logger.warn("Error trying to get the accValue", e);
+                }
+            }
+        }
+    }
+
+    private void requestAccValue(StoredBlock storedBlock, CoinDenomination denom, int height){
+        Sha256Hash accChecksum = storedBlock.getHeader().getAccumulator();
+        int pos = denom.ordinal() - 1;
+        // This is in bytes and not bits, that is why this is 4 and not 32
+        long nChecksum = Utils.readUint32BE(accChecksum.getBytes(), 4 * pos);
+        List<Peer> peers = Context.get().peerGroup.getConnectedPeers();
+        peers.get(new Random().nextInt(peers.size()))
+                .sendAccValueRequest(
+                        nChecksum,
+                        new AccValueMessage(params, height, denom)
+                );
     }
 
     public Transaction createMint(Transaction tx, Coin amount) throws InsufficientMoneyException {
@@ -110,6 +246,22 @@ public class ZWallet {
         TransactionOutput mintOutput = new TransactionOutput(params, tx, Coin.COIN, script.getProgram());
         mintOutput.setValue(Coin.valueOf(zCoin.getCoinDenomination().getDenomination(), 0));
         tx.addOutput(mintOutput);
+    }
+
+    public Map<CoinDenomination, HashSet<ZCoin>> getAllMintedZCoins(){
+        // Get all of the denom in the wallet
+        Pair<Map<CoinDenomination, HashSet<TransactionOutput>>, Map<CoinDenomination, Integer>> pair =
+                orderUnspents(zPivWallet.getUnspents(), true);
+
+        Map<CoinDenomination, HashSet<ZCoin>> map = new HashMap<>();
+        for (Map.Entry<CoinDenomination, HashSet<TransactionOutput>> entry : pair.getFirst().entrySet()) {
+            HashSet set = new HashSet();
+            for (TransactionOutput output : entry.getValue()) {
+                set.add(zPivWallet.loadZcoin(output));
+            }
+            map.put(entry.getKey(), set);
+        }
+        return map;
     }
 
     public Transaction createSpend(Transaction tx, Coin amount, boolean mintChange) throws InsufficientMoneyException {
@@ -257,8 +409,13 @@ public class ZWallet {
 
                 sum = tx.getInputSum();
                 if (sum.equals(amount) || sum.isGreaterThan(amount)) {
-                    // Verify
-                    tx.verify();
+                    try {
+                        // Verify
+                        tx.verify();
+                    }catch (Exception e){
+                        logger.error("Exception on the verification, tx: " + tx);
+                        throw e;
+                    }
                     return tx;
                 }
             }
@@ -274,7 +431,6 @@ public class ZWallet {
             return tx;
 
         }catch (Exception e){
-            e.printStackTrace();
             throw e;
         }
     }
@@ -303,11 +459,13 @@ public class ZWallet {
                 try {
                     logger.info("Minting change..");
                     Coin coinMinusMintFee = change.minus(Coin.COIN);
+                    logger.info("Trying to mint changeMinusFee: " + coinMinusMintFee.toFriendlyString());
                     tx = createMint(tx, coinMinusMintFee);
                     Coin changeToRegularAddress = Coin.COIN.minus(
                             CoinDefinition.MIN_ZEROCOIN_MINT_FEE.multiply(tx.getAmountOfMints()
                             )
                     );
+                    logger.info("Trying to mint changeToRegularAddress: " + changeToRegularAddress.toFriendlyString());
                     tx.addOutput(changeToRegularAddress, parent.freshReceiveAddress());
                 } catch (InsufficientMoneyException e){
                     logger.error("InsufficientMoneyException on mint change --- this should not happen", e);
@@ -337,7 +495,7 @@ public class ZWallet {
                 if (filterSpendable){
                     if (!isSpendable(output, lastSeenBlockHeight)) continue;
                 }
-                CoinDenomination den = Utils.toDenomination(output.getValue().value);
+                CoinDenomination den = toDenomination(output.getValue().value);
                 if (orderedUnspents.containsKey(den)){
                     orderedUnspents.get(den).add(output);
                     // Quantity
@@ -423,20 +581,47 @@ public class ZWallet {
         blockChain.addWallet(zPivWallet);
     }
 
-    public Transaction completeSendRequestAndWaitSync(JniBridgeWrapper jniBridgeWrapper, SendRequest request, PeerGroup peerGroup, ExecutorService executor) throws CannotSpendCoinsException {
+    public Transaction completeSendRequestAndWaitSync(JniBridgeWrapper jniBridgeWrapper, SendRequest request, PeerGroup peerGroup, ExecutorService executor) throws CannotSpendCoinsException, RequestFailedErrorcodeException {
         try {
             Context.get().zerocoinContext.jniBridge = jniBridgeWrapper;
             if (request.tx.getOutputs().isEmpty()) throw new IllegalArgumentException("SendRequest transactions outputs cannot be null, add the outputs values before call this method");
             ZCSpendRequest spendRequest = new ZCSpendRequest(request, peerGroup);
             zPivWallet.completeSendRequest(spendRequest);
-            Transaction tx = executor.submit(spendRequest).get(5, TimeUnit.MINUTES);
+            Transaction tx = executor.submit(spendRequest).get(10, TimeUnit.MINUTES);
             logger.info("Tx created!, " + tx);
             tx = peerGroup.broadcastTransaction(tx,1,false).broadcast().get(1, TimeUnit.MINUTES);
             logger.info("Tx broadcasted!, " + tx);
             return tx;
+        }catch (AccStoreException e){
+            logger.info("Exception in completeSendRequestAndWaitSync", e);
+            // Let's try to get the value here..
+            Transaction mintTx = zPivWallet.getTransaction(e.zCoin.getParentTxId());
+            if (mintTx.getAppearsInHashes() != null){
+                try {
+                    Sha256Hash appearedBlockHash = mintTx.getAppearsInHashes().keySet().iterator().next();
+                    StoredBlock storedBlock = Context.get().blockChain.getBlockStore().get(appearedBlockHash);
+                    if (storedBlock.getHeight() < e.height) throw new IllegalStateException("Stored block height cannot be higher than the base acc height..");
+                    while (storedBlock.getHeight() != e.height){
+                        storedBlock = storedBlock.getPrev(
+                                Context.get().blockChain.getBlockStore()
+                        );
+                    }
+                    requestAccValue(storedBlock, e.zCoin.getCoinDenomination(), e.height);
+
+                    throw new CannotSpendCoinsException("Re calculating coins, please try again in one minute");
+                } catch (BlockStoreException e1) {
+                    logger.warn("Cannot obtain parent block from transaction..");
+                    throw new CannotSpendCoinsException(e);
+                }
+            }
+            throw new CannotSpendCoinsException(e);
+
         } catch (Exception e){
             logger.info("Exception in completeSendRequestAndWaitSync", e);
-            throw new CannotSpendCoinsException(e);
+            if (e.getCause() instanceof RequestFailedErrorcodeException){
+                throw (RequestFailedErrorcodeException)e.getCause();
+            }else
+                throw new CannotSpendCoinsException(e);
         }
     }
 
@@ -510,4 +695,8 @@ public class ZWallet {
     }
 
 
+    public void shutdown() {
+        if (executorService != null && !executorService.isShutdown())
+            executorService.shutdown();
+    }
 }

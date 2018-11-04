@@ -94,7 +94,7 @@ public abstract class Message {
         this.cursor = this.offset = offset;
         this.length = length;
 
-        assert payload!=null:"Block payload null";
+        assert payload != null : "Message payload null";
 
         parse();
 
@@ -375,6 +375,10 @@ public abstract class Message {
 
     protected boolean hasMoreBytes() {
         return cursor < payload.length;
+    }
+
+    protected boolean hasMoreBytesThan(int bytes) {
+        return cursor < payload.length && (cursor + bytes) <= payload.length;
     }
 
     /** Network parameters this message was created with. */

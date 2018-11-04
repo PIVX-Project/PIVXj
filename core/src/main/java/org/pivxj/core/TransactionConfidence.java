@@ -389,7 +389,8 @@ public class TransactionConfidence {
     public synchronized int incrementDepthInBlocks(int seenBlockHeight) {
         if (lastBlockHeightUpdate != seenBlockHeight){
             if (lastBlockHeightUpdate > seenBlockHeight){
-                log.warn("trying to increase the tx depth with block with less height that the last depth update..");
+                // This could happen when the blockchain is under a reorgananization..
+                //log.warn("trying to increase the tx depth with block with less height that the last depth update..");
             }
             this.lastBlockHeightUpdate = seenBlockHeight;
             return ++this.depth;

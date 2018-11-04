@@ -1,6 +1,7 @@
 package host.furszy.zerocoinj.protocol;
 
 import com.zerocoinj.core.CoinDenomination;
+import com.zerocoinj.core.accumulators.AccumulatorWitness;
 import org.pivxj.core.*;
 
 import java.io.ByteArrayOutputStream;
@@ -17,6 +18,8 @@ public class GenWitMessage extends Message {
     private int startHeight;
     private CoinDenomination den;
     private int requestNum;
+    // Acc witness value (partial)
+    private BigInteger accWit;
 
     public GenWitMessage(NetworkParameters params, byte[] payload){
         super(params,payload,0);
@@ -28,12 +31,14 @@ public class GenWitMessage extends Message {
             CoinDenomination den,
             int elements,
             double falsePositiveRate,
-            long randomNonce
+            long randomNonce,
+            BigInteger accWit
     ) {
         super(params);
         this.startHeight = startHeight;
         this.den = den;
         this.bloomFilter = new BloomFilter(elements, falsePositiveRate, randomNonce,2);
+        this.accWit = accWit;
     }
 
     public void complete(){
@@ -60,12 +65,22 @@ public class GenWitMessage extends Message {
         return den;
     }
 
+    public BigInteger getAccWit() {
+        return accWit;
+    }
+
     public void insert(BigInteger data){
         this.bloomFilter.insert(Utils.serializeBigInteger(data));
     }
 
     public boolean contains(BigInteger data){
         return this.bloomFilter.contains(Utils.serializeBigInteger(data));
+    }
+
+    public void cleanFilter(int elements,
+                            double falsePositiveRate,
+                            long randomNonce){
+        this.bloomFilter = new BloomFilter(elements, falsePositiveRate, randomNonce,2);
     }
 
     @Override
@@ -84,6 +99,12 @@ public class GenWitMessage extends Message {
             Utils.uint32ToByteStreamLE(startHeight, buf);
             Utils.uint32ToByteStreamLE(den.getDenomination(), buf);
             Utils.uint32ToByteStreamLE(requestNum, buf);
+            try{
+                Utils.serializeBigInteger(buf, accWit);
+            }catch (Exception e){
+                System.out.println("##### Old node, no accWit on the getWit message");
+                e.printStackTrace();
+            }
             return buf.toByteArray();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -94,9 +115,11 @@ public class GenWitMessage extends Message {
     @Override
     public String toString() {
         return "GenWitMessage{" +
-                "startHeight=" + startHeight +
+                "bloomFilter=" + bloomFilter +
+                ", startHeight=" + startHeight +
                 ", den=" + den +
                 ", requestNum=" + requestNum +
+                ", accWit=" + accWit.toString(16) +
                 '}';
     }
 }

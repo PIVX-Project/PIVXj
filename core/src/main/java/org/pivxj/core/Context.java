@@ -16,9 +16,11 @@ package org.pivxj.core;
 
 import com.zerocoinj.JniBridge;
 import com.zerocoinj.core.context.ZerocoinContext;
+import host.furszy.zerocoinj.store.AccStore;
+import host.furszy.zerocoinj.store.AccStoreImp;
+import host.furszy.zerocoinj.store.MintsStore;
 import org.pivxj.core.listeners.BlockChainListener;
 import org.pivxj.store.FlatDB;
-import org.pivxj.store.HashStore;
 import org.pivxj.store.MasternodeDB;
 import org.darkcoinj.DarkSendPool;
 import org.darkcoinj.InstantSend;
@@ -66,6 +68,8 @@ public class Context {
     private boolean allowInstantX = true; //allow InstantX in litemode
     public PeerGroup peerGroup;
     public AbstractBlockChain blockChain;
+    public AccStore accStore;
+    public MintsStore mintsStore;
     public SporkManager sporkManager;
     public MasternodeManager masternodeManager;
     public MasternodePayments masternodePayments;

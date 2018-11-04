@@ -17,20 +17,28 @@ public class ZCoinSelection {
         List<CoinDenomination> usedDenom = new ArrayList<>();
 
         // This is for the coinDenomination that are greater than the actual number
-        if (denom.getDenomination() > number) {
+        if (denom.getDenomination() >= number) {
             usedDenom.add(denom);
             return usedDenom;
         }
 
         // This is for the coinDenomination that multiplied by a factor of X are greater than the actual number
         int num = number / denom.getDenomination();
-        if (denom.getDenomination() * (num + 1) > number) {
-            int numToAdd = num + 1;
+        if (denom.getDenomination() * num >= number){
+            int numToAdd = num;
             if (numToAdd <= 7) {
                 for (int i = 0; i < numToAdd; i++) {
                     usedDenom.add(denom);
                 }
                 return usedDenom;
+            }
+        }
+        if (denom.getDenomination() * (num + 1) >= number) {
+            int numToAdd = num + 1;
+            if (numToAdd <= 7) {
+                for (int i = 0; i < numToAdd; i++) {
+                    usedDenom.add(denom);
+                }
             }
         }
         return usedDenom;

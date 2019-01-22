@@ -122,8 +122,8 @@ public class PubcoinsMessage extends Message {
     @Override
     public String toString() {
         return "PubcoinsMessage{" +
-                "accValue=" + accValue.toString(16) +
-                ", accWitnessValue=" + accWitnessValue.toString(16) +
+                "accValue=" + ((accValue != null) ? accValue.toString(16) : "null") +
+                ", accWitnessValue=" + ((accValue != null) ? accWitnessValue.toString(16) : "null") +
                 ", list=" + listToHexString() +
                 ", requestNum=" + requestNum +
                 ", hasRequestFailed=" + hasRequestFailed +

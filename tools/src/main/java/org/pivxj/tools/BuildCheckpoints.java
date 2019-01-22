@@ -31,7 +31,6 @@ import com.google.common.io.Resources;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import sun.applet.Main;
 
 import java.io.DataOutputStream;
 import java.io.File;

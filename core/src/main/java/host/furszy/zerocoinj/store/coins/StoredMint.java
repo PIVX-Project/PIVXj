@@ -1,4 +1,4 @@
-package host.furszy.zerocoinj.store;
+package host.furszy.zerocoinj.store.coins;
 
 
 import com.zerocoinj.core.CoinDenomination;
@@ -9,18 +9,31 @@ import java.math.BigInteger;
 
 public class StoredMint {
 
-    private Commitment commitment;
+    // Only stored commitment value and randomness
+    private BigInteger commitmentValue;
+    // Content of the commitment
     private BigInteger serial;
+    //
     private CoinDenomination denom;
     private Sha256Hash parentTxId;
+    // Height in which the coin was added to the accumulator
     private int mintHeight;
-
+    // Height for the witness accumulator calculation
     private int computedUpToHeight;
     private BigInteger acc;
     private BigInteger accWit;
 
-    public StoredMint(Commitment commitment, BigInteger serial, CoinDenomination denom, Sha256Hash parentTxId, int mintHeight, int computedUpToHeight, BigInteger acc, BigInteger accWit) {
-        this.commitment = commitment;
+    public StoredMint(
+            BigInteger commitmentValue,
+            BigInteger serial,
+            CoinDenomination denom,
+            Sha256Hash parentTxId,
+            int mintHeight,
+            int computedUpToHeight,
+            BigInteger acc,
+            BigInteger accWit) {
+
+        this.commitmentValue = commitmentValue;
         this.serial = serial;
         this.denom = denom;
         this.parentTxId = parentTxId;
@@ -30,8 +43,8 @@ public class StoredMint {
         this.accWit = accWit;
     }
 
-    public Commitment getCommitment() {
-        return commitment;
+    public BigInteger getCommitmentValue() {
+        return commitmentValue;
     }
 
     public BigInteger getSerial() {
@@ -77,7 +90,7 @@ public class StoredMint {
     @Override
     public String toString() {
         return "StoredMint{" +
-                "commitment=" + commitment +
+                "commitmentValue=" + commitmentValue +
                 ", serial=" + serial +
                 ", denom=" + denom +
                 ", parentTxId=" + parentTxId +

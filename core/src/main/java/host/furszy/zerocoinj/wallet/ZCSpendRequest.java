@@ -1,6 +1,5 @@
 package host.furszy.zerocoinj.wallet;
 
-import com.google.common.collect.Lists;
 import com.zerocoinj.core.CoinDenomination;
 import com.zerocoinj.core.CoinSpend;
 import com.zerocoinj.core.SpendType;
@@ -11,7 +10,6 @@ import com.zerocoinj.core.accumulators.Accumulators;
 import com.zerocoinj.core.context.ZerocoinContext;
 import host.furszy.zerocoinj.protocol.GenWitMessage;
 import host.furszy.zerocoinj.protocol.PubcoinsMessage;
-import host.furszy.zerocoinj.store.StoredMint;
 import org.pivxj.core.*;
 import org.pivxj.core.listeners.OnGetDataResponseEventListener;
 import org.pivxj.script.Script;
@@ -29,7 +27,6 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.*;
 
-import static com.google.common.primitives.Ints.min;
 import static host.furszy.zerocoinj.protocol.PubcoinsMessage.ERROR_CODES.NO_ENOUGH_MINTS;
 
 public class ZCSpendRequest implements Callable<Transaction>,OnGetDataResponseEventListener {

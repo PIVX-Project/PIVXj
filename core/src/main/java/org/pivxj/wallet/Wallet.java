@@ -32,6 +32,7 @@ import host.furszy.zerocoinj.WalletFilesInterface;
 import host.furszy.zerocoinj.protocol.AccValueMessage;
 import host.furszy.zerocoinj.protocol.GenWitMessage;
 import host.furszy.zerocoinj.store.AccStoreException;
+import host.furszy.zerocoinj.store.coins.StoredMint;
 import host.furszy.zerocoinj.wallet.CannotCompleteSendRequestException;
 import host.furszy.zerocoinj.wallet.ZCSpendRequest;
 import net.jcip.annotations.*;
@@ -4289,24 +4290,60 @@ public class Wallet extends BaseTaggableObject
     }
 
     private GenWitMessage newGenWitMessage(ZCoin zCoin, long tweak) throws AccStoreException {
-        // height, todo: randomize this a little bit
-        int startHeight = (zCoin.getHeight() - (zCoin.getHeight() % 10)) - new Random().nextInt(50);
+
+        // First check if we already have this mint stored
+        StoredMint storedMint = null;
+        if (context.mintsStore != null) {
+            storedMint = context.mintsStore.get(zCoin.getCommitment().getCommitmentValue());
+        }
+
+        // height, randomize this
+        int startHeight;
+        BigInteger accValue = null;
+        if (storedMint == null){
+            int randomNumber = new Random().nextInt(200);
+            startHeight = (zCoin.getHeight() - (zCoin.getHeight() % 10)) - (randomNumber - randomNumber % 10 );
+            accValue = context.accStore.get(startHeight, zCoin.getCoinDenomination());
+
+
+            // Store mint
+            context.mintsStore.put(
+                    new StoredMint(
+                            zCoin.getCommitment().getCommitmentValue(),
+                            zCoin.getSerial(),
+                            zCoin.getCoinDenomination(),
+                            zCoin.getParentTxId(),
+                            zCoin.getHeight(),
+                            startHeight,
+                            accValue,
+                            accValue
+                    )
+            );
+        }else {
+            startHeight = storedMint.getComputedUpToHeight();
+            accValue = storedMint.getAccWit();
+            if (accValue == null){
+                accValue = context.accStore.get(startHeight, zCoin.getCoinDenomination());
+                if (accValue != null){
+                    // Update mint
+                    storedMint.setAccWit(accValue);
+                    storedMint.setAcc(accValue);
+                    storedMint.setComputedUpToHeight(startHeight);
+                    context.mintsStore.update(storedMint); // Check if update worked correctly..
+                }
+            }
+        }
+
         // TODO: Cargar aquí el witness value base de este mensaje desde la db de accumulators value
-        //TODO: Recordar que esto puede causar que se acumulen bloques dos veces.. tengo que pasarle el bloque exacto donde se quedó el ultimo.
+        // TODO: Recordar que esto puede causar que se acumulen bloques dos veces.. tengo que pasarle el bloque exacto donde se quedó el ultimo.
         // TODO: Si quiero agregarle randomness deberia pedir los acc value que ocurrieron antes de este mint..
-        // Get the checkpoint added at the next multiple of 10
-        //int nHeightCheckpoint =  zCoin.getHeight() - (10 + (zCoin.getHeight() % 10));
-        // TODO: This is just for the first implementation, should be changed following the protocol..
-        int nHeightCheckpoint =  zCoin.getHeight() - ((zCoin.getHeight() % 10));
-        startHeight = nHeightCheckpoint;
-        // TODO: Change this for the last known witness..
-        BigInteger accValue = context.accStore.get(nHeightCheckpoint, zCoin.getCoinDenomination());
+        // TODO: This is just for the first implementation, should be changed following the final protocol specs..
+        // TODO: Add the last known witness..
 
         if (accValue == null){
-            // TODO: Request the value and put all of this in waiting status or reject the work..
-            log.error("## there is no accValue for nHeightCheckpoint: " + nHeightCheckpoint + ", denom: " + zCoin.getCoinDenomination() + ", for coin: " + zCoin);
+            log.error("## there is no accValue for nHeightCheckpoint: " + startHeight + ", denom: " + zCoin.getCoinDenomination() + ", for coin: " + zCoin);
             // Look for an older one here..
-            throw new AccStoreException("Value not found", zCoin, nHeightCheckpoint);
+            throw new AccStoreException("WitValue not found", zCoin, startHeight);
         }
 
         GenWitMessage genWitMessage = new GenWitMessage(

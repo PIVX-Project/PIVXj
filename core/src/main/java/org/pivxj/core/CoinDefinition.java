@@ -35,13 +35,11 @@ public class CoinDefinition {
     };
     public static final UnspentAPIType UnspentAPI = UnspentAPIType.Cryptoid;
 
-    public static final String BLOCKEXPLORER_BASE_URL_PROD = "http://explorer.dash.org/";    //blockr.io
+    public static final String BLOCKEXPLORER_BASE_URL_PROD = "http://explorer.pivx.org/";    //blockr.io
     public static final String BLOCKEXPLORER_ADDRESS_PATH = "address/";             //blockr.io path
     public static final String BLOCKEXPLORER_TRANSACTION_PATH = "tx/";              //blockr.io path
     public static final String BLOCKEXPLORER_BLOCK_PATH = "block/";                 //blockr.io path
-    public static final String BLOCKEXPLORER_BASE_URL_TEST = "http://test.explorer.dash.org/";
-
-    public static final String DONATION_ADDRESS = "Xdeh9YTLNtci5zSL4DDayRSVTLf299n9jv";  //Hash Engineering donation DASH address
+    public static final String BLOCKEXPLORER_BASE_URL_TEST = "http://test.explorer.pivx.org/";
 
     enum CoinHash {
         SHA256,
@@ -53,7 +51,7 @@ public class CoinDefinition {
     public static boolean checkpointFileSupport = true;
 
     public static final int TARGET_TIMESPAN = (int)(24 * 60 * 60);  // 24 hours per difficulty cycle, on average.
-    public static final int TARGET_SPACING = (int)(1 * 60);  // 2.5 minutes seconds per block.
+    public static final int TARGET_SPACING = (int)(1 * 60);  // 1 minute  per block.
     public static final int INTERVAL = TARGET_TIMESPAN / TARGET_SPACING;  //36 blocks
 
     public static final int getInterval(int height, boolean testNet) {
@@ -77,10 +75,10 @@ public class CoinDefinition {
     public static final boolean feeCanBeRaised = false;
 
     //
-    // PIVX 3.1.0.2
+    // PIVX 3.2.0
     //
-    public static final int PROTOCOL_VERSION = 70914;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70914;        //version.h MIN_PROTO_VERSION
+    public static final int PROTOCOL_VERSION = 70916;          //version.h PROTOCOL_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70916;        //version.h MIN_PROTO_VERSION
 
     public static final int BLOCK_CURRENTVERSION = 2;   //CBlock::CURRENT_VERSION
     public static final int MAX_BLOCK_SIZE = 1 * 1000 * 1000;

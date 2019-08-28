@@ -929,8 +929,7 @@ public class Peer extends PeerSocketHandler {
             confidence.setSource(TransactionConfidence.Source.NETWORK);
 
             //PIVX Specific
-            // todo furszy: commented dash instantSend for now.
-            if (context.instantSend!=null)
+            if (context.instantSend != null)
                 context.instantSend.syncTransaction(tx, null);
 
             pendingTxDownloads.remove(confidence);

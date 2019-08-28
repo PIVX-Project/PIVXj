@@ -77,8 +77,8 @@ public class CoinDefinition {
     //
     // PIVX 3.2.0
     //
-    public static final int PROTOCOL_VERSION = 70916;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70916;        //version.h MIN_PROTO_VERSION
+    public static final int PROTOCOL_VERSION = 70917;          //version.h PROTOCOL_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70917;        //version.h MIN_PROTO_VERSION
 
     public static final int BLOCK_CURRENTVERSION = 2;   //CBlock::CURRENT_VERSION
     public static final int MAX_BLOCK_SIZE = 1 * 1000 * 1000;
@@ -124,8 +124,8 @@ public class CoinDefinition {
 
     //net.cpp strDNSSeed
     static public String[] dnsSeeds = new String[] {
-            "x25.pivx.seed.fuzzbawls.pw",
-            "x25.pivx.seed2.fuzzbawls.pw",
+            "x5.pivx.seed.fuzzbawls.pw",
+            "x5.pivx.seed2.fuzzbawls.pw",
     };
 
     public static int minBroadcastConnections = 3;   //0 for default; we need more peers.

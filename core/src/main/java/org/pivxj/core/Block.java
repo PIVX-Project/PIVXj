@@ -71,6 +71,8 @@ public class Block extends Message {
      */
     public static final long ZEROCOIN_BLOCK_VERSION = 4;
 
+    public static final long ZEROCOIN_BLOCK_VERSION_END = 7;
+
     public static final boolean ACTIVATE_ZEROCOIN = true;
 
     /**
@@ -284,40 +286,28 @@ public class Block extends Message {
             // header
             cursor = offset;
             version = readUint32();
-            //System.out.println("parse version: "+version);
             prevBlockHash = readHash();
-            //System.out.println("parse prevBlockHash: "+prevBlockHash);
             merkleRoot = readHash();
-            //System.out.println("parse merkleRoot: "+merkleRoot);
             time = readUint32();
-            //System.out.println("parse time: "+time);
             difficultyTarget = readUint32();
-            //System.out.println("parse difficultyTarget: "+difficultyTarget);
             nonce = readUint32();
-            //System.out.println("parse nonce: "+nonce);
-            int headerSize = getHeaderSize();
             if (isZerocoin() && length >= ZEROCOIN_HEADER_SIZE) {
                 // accumulator
                 zeroCoinAccumulator = readHash(true);
-                //System.out.println("parse zeroCoinAccumulator: "+zeroCoinAccumulator);
-                //System.out.println("offset: "+offset);
-                //System.out.println("cursor: "+cursor);
-                //System.out.println("payload size: "+payload.length);
-                //System.out.println("Hash payload "+Arrays.toString(copy));
-               // hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(copy));
-               // System.out.println("protocol hash parsed: "+hash.toString());
                 hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
-                //System.out.println("protocol test hash parsed 2: "+hash.toString());
-
-                //hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
             } else {
-                hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
-                //System.out.println("hash parsed: "+hash.toString());
+                if (version >= ZEROCOIN_BLOCK_VERSION_END) {
+                    // No zc accumulator from here
+                    hash = Sha256Hash.wrapReversed(Sha256Hash.hashTwice(payload, offset, cursor - offset));
+                } else {
+                    hash = Sha256Hash.wrapReversed(Hash9.digest(payload, offset, cursor - offset));
+                }
             }
 
             headerBytesValid = serializer.isParseRetainMode();
 
             // transactions
+            int headerSize = getHeaderSize();
             parseTransactions(offset + headerSize);
             length = cursor - offset;
         }catch (Exception e){
@@ -336,7 +326,6 @@ public class Block extends Message {
     // default for testing
     void writeHeader(OutputStream stream) throws IOException {
         int headerSize = getHeaderSize();
-        //System.out.println("writeHeader header size: "+headerSize);
         // try for cached write first
         if (headerBytesValid && payload != null && payload.length >= offset + headerSize) {
             stream.write(payload, offset, headerSize);
@@ -344,26 +333,19 @@ public class Block extends Message {
         }
         // fall back to manual write
         Utils.uint32ToByteStreamLE(version, stream);
-        //System.out.println("writeHeader version: "+version);
         stream.write(prevBlockHash.getReversedBytes());
-        //System.out.println("writeHeader prevBlockHash: "+prevBlockHash);
         stream.write(getMerkleRoot().getReversedBytes());
-        //System.out.println("writeHeader merkle root: "+getMerkleRoot());
         Utils.uint32ToByteStreamLE(time, stream);
-        //System.out.println("writeHeader time: "+time);
         Utils.uint32ToByteStreamLE(difficultyTarget, stream);
-        //System.out.println("writeHeader difficultyTarget: "+difficultyTarget);
         Utils.uint32ToByteStreamLE(nonce, stream);
-        //System.out.println("writeHeader nonce: "+nonce);
-        if (isZerocoin()){
-            byte[] accumulator = (zeroCoinAccumulator!=null)?zeroCoinAccumulator.getReversedBytes():new byte[32];
+        if (isZerocoin()) {
+            byte[] accumulator = (zeroCoinAccumulator != null) ? zeroCoinAccumulator.getReversedBytes() : new byte[32];
             stream.write(accumulator);
-            //System.out.println("writeHeader zeroCoinAccumulator: "+nonce);
         }
     }
 
     public int getHeaderSize(){
-        return isZerocoin()?ZEROCOIN_HEADER_SIZE:HEADER_SIZE;
+        return isZerocoin() ? ZEROCOIN_HEADER_SIZE : HEADER_SIZE;
     }
 
     private void writeTransactions(OutputStream stream) throws IOException {
@@ -484,7 +466,7 @@ public class Block extends Message {
             writeHeader(bos);
             return Sha256Hash.wrap(
                     Utils.reverseBytes(
-                            isZerocoin()?
+                            isUsingSha256Hash()?
                                     Sha256Hash.hashTwice(bos.toByteArray())
                                     :
                                     Hash9.digest(bos.toByteArray())
@@ -521,26 +503,30 @@ public class Block extends Message {
         return hash;
     }
 
+    public boolean isUsingSha256Hash() {
+        return version >= ZEROCOIN_BLOCK_VERSION;
+    }
+
     public boolean isZerocoin() {
         if (!ACTIVATE_ZEROCOIN) {
             return false;
         }else {
-            return version >= ZEROCOIN_BLOCK_VERSION;
+            return version >= ZEROCOIN_BLOCK_VERSION && version < ZEROCOIN_BLOCK_VERSION_END;
         }
     }
 
-    public static boolean isZerocoinHeight(NetworkParameters networkParameters,long height) {
+    public static boolean isZerocoinHeight(NetworkParameters networkParameters, long height) {
         if (!ACTIVATE_ZEROCOIN) {
             return false;
         }else
-            return height>=networkParameters.getZerocoinStartedHeight();
+            return height >= networkParameters.getZerocoinStartedHeight() && height < networkParameters.getZerocoinEndHeight();
     }
 
     public static int getHeaderSizeByVersion(long version){
         if (!ACTIVATE_ZEROCOIN) {
             return Block.HEADER_SIZE;
         }else {
-            return version >= Block.ZEROCOIN_BLOCK_VERSION ? ZEROCOIN_HEADER_SIZE : HEADER_SIZE;
+            return (version >= Block.ZEROCOIN_BLOCK_VERSION && version < Block.ZEROCOIN_BLOCK_VERSION_END) ? ZEROCOIN_HEADER_SIZE : HEADER_SIZE;
         }
     }
 
@@ -548,7 +534,7 @@ public class Block extends Message {
         if (!ACTIVATE_ZEROCOIN) {
             return Block.HEADER_SIZE;
         }else
-            return Block.isZerocoinHeight(params,height)?Block.ZEROCOIN_HEADER_SIZE:Block.HEADER_SIZE;
+            return Block.isZerocoinHeight(params, height) ? Block.ZEROCOIN_HEADER_SIZE : Block.HEADER_SIZE;
     }
 
     /**
@@ -611,7 +597,7 @@ public class Block extends Message {
         s.append("   difficulty target (nBits): ").append(difficultyTarget).append("\n");
         s.append("   nonce: ").append(nonce).append("\n");
         if (isZerocoin()){
-            s.append("   accumulator: ").append((zeroCoinAccumulator!=null)?zeroCoinAccumulator.toString():0).append("\n");;
+            s.append("   accumulator: ").append((zeroCoinAccumulator != null) ? zeroCoinAccumulator.toString(): 0).append("\n");
         }
         if (transactions != null && transactions.size() > 0) {
             s.append("   with ").append(transactions.size()).append(" transaction(s):\n");

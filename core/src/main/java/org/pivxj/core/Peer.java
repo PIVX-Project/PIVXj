@@ -536,6 +536,13 @@ public class Peer extends PeerSocketHandler {
         // No further communication is possible until version handshake is complete.
         if (!(m instanceof VersionMessage || m instanceof VersionAck
                 || (versionHandshakeFuture.isDone() && !versionHandshakeFuture.isCancelled()))) {
+
+            if (m instanceof GetSporksMessage) {
+                // sporks received, do not take them into account. This is an invalid functioning of the core node that will be fixed in the future.
+                log.info("Received getspork message before the handshake completed, skipping it");
+                return;
+            }
+
             String reason = "  " + ((m instanceof RejectMessage) ? ((RejectMessage) m).getReasonString() : "");
             throw new ProtocolException(
                     "Received " + m.getClass().getSimpleName() + " before version handshake is complete."+ reason);
@@ -1543,7 +1550,7 @@ public class Peer extends PeerSocketHandler {
         //masternodepings
 
         //if(blockChain.getBestChainHeight() > (this.getBestHeight() - 100))
-        {
+        /*{
 
            //if(context.masternodeSync.isSynced()) {
                 it = masternodePings.iterator();
@@ -1571,6 +1578,7 @@ public class Peer extends PeerSocketHandler {
                 //}
             }
         }
+
         it = sporks.iterator();
 
         while (it.hasNext()) {
@@ -1581,6 +1589,7 @@ public class Peer extends PeerSocketHandler {
             getdata.addItem(item);
             //}
         }
+        */
 
         // If we are requesting filteredblocks we have to send a ping after the getdata so that we have a clear
         // end to the final FilteredBlock's transactions (in the form of a pong) sent to us

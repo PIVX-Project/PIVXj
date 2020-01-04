@@ -60,7 +60,6 @@ public class DeterministicSeed implements EncryptableItem {
         this.mnemonicCode = checkNotNull(mnemonic);
         this.encryptedMnemonicCode = null;
         this.creationTimeSeconds = creationTimeSeconds;
-        //System.out.println("seed: "+ toHexString()+"creationTime: "+creationTimeSeconds+" , mnemonic code: "+ Arrays.toString(mnemonicCode.toArray()));
     }
 
     public DeterministicSeed(EncryptedData encryptedMnemonic, @Nullable EncryptedData encryptedSeed, long creationTimeSeconds) {

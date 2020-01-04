@@ -86,6 +86,7 @@ public abstract class NetworkParameters {
     protected int bip32HeaderPriv;
 
     protected long zerocoinStartedHeight;
+    protected long zerocoinEndHeight;
 
     /** Used to check majorities for block version upgrade */
     protected int majorityEnforceBlockUpgrade;
@@ -478,6 +479,10 @@ public abstract class NetworkParameters {
      */
     public long getZerocoinStartedHeight() {
         return zerocoinStartedHeight;
+    }
+
+    public long getZerocoinEndHeight() {
+        return zerocoinEndHeight;
     }
 
     /**

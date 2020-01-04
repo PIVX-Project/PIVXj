@@ -421,8 +421,8 @@ public abstract class AbstractBlockChain {
      * @throws BlockStoreException if the block store had an underlying error or newBlock does not exist in the block store at all.
      * @return The full set of all changes made to the set of open transaction outputs.
      */
-    protected abstract TransactionOutputChanges connectTransactions(StoredBlock newBlock) throws VerificationException, BlockStoreException, PrunedException;    
-    
+    protected abstract TransactionOutputChanges connectTransactions(StoredBlock newBlock) throws VerificationException, BlockStoreException, PrunedException;
+
     // filteredTxHashList contains all transactions, filteredTxn just a subset
     private boolean add(Block block, boolean tryConnecting,
                         @Nullable List<Sha256Hash> filteredTxHashList, @Nullable Map<Sha256Hash, Transaction> filteredTxn)
@@ -436,7 +436,7 @@ public abstract class AbstractBlockChain {
                 return true;
             }
             if (tryConnecting && orphanBlocks.containsKey(block.getHash())) {
-                log.info("orphanBlock..");
+                log.info("Received an already got orphan.");
                 return false;
             }
 

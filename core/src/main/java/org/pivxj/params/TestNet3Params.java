@@ -65,6 +65,7 @@ public class TestNet3Params extends AbstractBitcoinNetParams {
         //alertSigningKey = HEX.decode(CoinDefinition.TESTNET_SATOSHI_KEY);
 
         zerocoinStartedHeight = CoinDefinition.TESTNET_ZEROCOIN_STARTING_BLOCK_HEIGHT;
+        zerocoinEndHeight = CoinDefinition.TESTNET_ZEROCOIN_END_BLOCK_HEIGHT;
 
         dnsSeeds = CoinDefinition.testnetDnsSeeds;
 

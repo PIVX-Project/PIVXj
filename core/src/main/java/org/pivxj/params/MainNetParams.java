@@ -61,6 +61,7 @@ public class MainNetParams extends AbstractBitcoinNetParams {
         CoinDefinition.initCheckpoints(checkpoints);
 
         zerocoinStartedHeight = CoinDefinition.MAINNET_ZEROCOIN_STARTING_BLOCK_HEIGHT;
+        zerocoinEndHeight = CoinDefinition.MAINNET_ZEROCOIN_END_BLOCK_HEIGHT;
 
         dnsSeeds = CoinDefinition.dnsSeeds;
 

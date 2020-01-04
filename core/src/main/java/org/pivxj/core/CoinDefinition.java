@@ -77,8 +77,8 @@ public class CoinDefinition {
     //
     // PIVX 3.2.0
     //
-    public static final int PROTOCOL_VERSION = 70917;          //version.h PROTOCOL_VERSION
-    public static final int MIN_PROTOCOL_VERSION = 70917;        //version.h MIN_PROTO_VERSION
+    public static final int PROTOCOL_VERSION = 70918;          //version.h PROTOCOL_VERSION
+    public static final int MIN_PROTOCOL_VERSION = 70918;        //version.h MIN_PROTO_VERSION
 
     public static final int BLOCK_CURRENTVERSION = 2;   //CBlock::CURRENT_VERSION
     public static final int MAX_BLOCK_SIZE = 1 * 1000 * 1000;
@@ -92,6 +92,10 @@ public class CoinDefinition {
     /** LibZerocoin starting block height */
     public static final long TESTNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 201564;
     public static final long MAINNET_ZEROCOIN_STARTING_BLOCK_HEIGHT = 863787;
+
+
+    public static final long TESTNET_ZEROCOIN_END_BLOCK_HEIGHT = 1347000;
+    public static final long MAINNET_ZEROCOIN_END_BLOCK_HEIGHT = 2153200;
 
     //high fee required for zerocoin mints
     public static final Coin MIN_ZEROCOIN_MINT_FEE = Coin.CENT;

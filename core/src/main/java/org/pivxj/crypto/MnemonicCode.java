@@ -134,7 +134,6 @@ public class MnemonicCode {
         byte[] seed = PBKDF2SHA512.derive(pass, salt, PBKDF2_ROUNDS, 64);
         watch.stop();
         log.info("PBKDF2 took {}", watch);
-        //System.out.println("MnemonicCode class: "+ Arrays.toString(words.toArray())+", passphrase: "+passphrase+ ", \ntoSeed: "+HEX.encode(seed));
         return seed;
     }
 

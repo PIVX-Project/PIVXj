@@ -14,6 +14,7 @@
 
 package org.pivxj.store;
 
+import jdk.internal.ref.Cleaner;
 import sun.misc.*;
 import sun.nio.ch.*;
 
